@@ -1,57 +1,98 @@
 <template>
-  <lightning-card title="QMS GenAI - Create CAPA" icon-name="standard:case">
-    <div class="slds-p-around_medium">
+  <lightning-card title="QMS GenAI" icon-name="standard:case">
+    <div class="panel">
+      <div class="status-row">
+        <span class={connectionClass}>{connectionLabel}</span>
+        <span class="muted">{modelLabel}</span>
+      </div>
+
       <template if:true={loading}>
-        <div class="slds-align_absolute-center slds-p-vertical_medium">
-          <lightning-spinner alternative-text="Generating CAPA..." size="medium"></lightning-spinner>
-          <p class="slds-p-left_small">Running agent pipeline...</p>
+        <div class="loading">
+          <lightning-spinner alternative-text="Running QMS GenAI..." size="small"></lightning-spinner>
+          <span>Running RCA and CAPA agent pipeline...</span>
         </div>
       </template>
 
-      <template if:false={loading}>
-        <template if:true={hasResult}>
-          <dl class="slds-dl_horizontal">
-            <dt class="slds-dl_horizontal__label">Root Cause</dt>
-            <dd class="slds-dl_horizontal__detail">{rootCause}</dd>
+      <template if:true={error}>
+        <div class="error">{error}</div>
+      </template>
 
-            <dt class="slds-dl_horizontal__label">Corrective Action</dt>
-            <dd class="slds-dl_horizontal__detail">{correctiveAction}</dd>
+      <template if:true={hasResult}>
+        <section class="summary">
+          <div>
+            <span class="label">Record loaded</span>
+            <strong>{recordTitle}</strong>
+            <span class="muted">{recordMeta}</span>
+          </div>
+          <div>
+            <span class="label">CAPA draft</span>
+            <strong>{capaId}</strong>
+            <span class="pill">{reviewState}</span>
+          </div>
+        </section>
 
-            <dt class="slds-dl_horizontal__label">Preventive Action</dt>
-            <dd class="slds-dl_horizontal__detail">{preventiveAction}</dd>
+        <section class="block">
+          <h3>Root Cause Analysis</h3>
+          <p>{rootCause}</p>
+          <div class="score-row">
+            <span>RCA quality score</span>
+            <strong>{rcaQualityScore}</strong>
+          </div>
+        </section>
 
-            <dt class="slds-dl_horizontal__label">Risk Rating</dt>
-            <dd class="slds-dl_horizontal__detail">{riskRating}</dd>
+        <section class="block">
+          <h3>CAPA Draft</h3>
+          <dl>
+            <dt>Immediate Action</dt>
+            <dd>{immediateAction}</dd>
+            <dt>Corrective Action</dt>
+            <dd>{correctiveAction}</dd>
+            <dt>Preventive Action</dt>
+            <dd>{preventiveAction}</dd>
+            <dt>Effectiveness Check</dt>
+            <dd>{effectivenessCheck}</dd>
           </dl>
-          <div class="slds-m-top_medium">
-            <a href={openInQmsUrl} target="_blank" rel="noopener">Open in QMS</a>
+        </section>
+
+        <section class="metrics">
+          <div>
+            <span class="label">Risk</span>
+            <strong>{riskRating}</strong>
           </div>
-        </template>
-
-        <template if:true={error}>
-          <div class="slds-text-color_error slds-p-vertical_small">
-            {error}
+          <div>
+            <span class="label">Owner</span>
+            <strong>{owner}</strong>
           </div>
-        </template>
-
-        <template if:false={hasResult}>
-          <template if:false={error}>
-            <p class="slds-p-bottom_small">
-              Click below to generate a CAPA draft from this Case using the QMS GenAI agent pipeline.
-            </p>
-          </template>
-        </template>
-
-        <div class="slds-m-top_medium">
-          <lightning-button
-            variant="brand"
-            label="Create CAPA with AI"
-            title="Create CAPA with AI"
-            onclick={handleGenerate}
-            disabled={loading}>
-          </lightning-button>
-        </div>
+          <div>
+            <span class="label">Closure</span>
+            <strong>{closureDays}</strong>
+          </div>
+        </section>
       </template>
+
+      <template if:false={hasResult}>
+        <p class="intro">
+          Create an RCA-backed CAPA draft in QMS from this Salesforce Case.
+        </p>
+      </template>
+
+      <div class="actions">
+        <lightning-button
+          variant="brand"
+          label="Create CAPA with AI"
+          title="Create CAPA with AI"
+          onclick={handleGenerate}
+          disabled={loading}>
+        </lightning-button>
+        <template if:true={hasQmsUrl}>
+          <lightning-button
+            variant="neutral"
+            label="Open in QMS"
+            title="Open in QMS"
+            onclick={openInQms}>
+          </lightning-button>
+        </template>
+      </div>
     </div>
   </lightning-card>
 </template>

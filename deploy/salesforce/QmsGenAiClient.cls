@@ -2,11 +2,11 @@
  * QmsGenAiClient - Apex client for the QMS GenAI REST API.
  *
  * Setup (one-time):
- *   1. Named Credential: `QMS_GenAI` pointing at https://qms.example.com
- *   2. External Credential with Principal:
- *      - X-API-Key: <api key from `python -m scripts.provision_tenant`>
- *      - X-Tenant-Id: <tenant slug>
- *   3. Remote Site Setting is NOT required (Named Credential handles it).
+ *   1. Named Credential: `QMS_GenAI` pointing at the QMS host.
+ *   2. Username: sf-sandbox.
+ *   3. Password: same value as SF_API_KEY in QMS.
+ *   4. Generate Authorization Header: unchecked.
+ *   5. Allow Merge Fields in HTTP Header: checked.
  *
  * All requests carry an Idempotency-Key so retries never duplicate CAPAs.
  */
@@ -32,6 +32,8 @@ public with sharing class QmsGenAiClient {
     req.setEndpoint(NAMED_CRED + '/api/v1/capa/generate');
     req.setMethod('POST');
     req.setHeader('Content-Type', 'application/json');
+    req.setHeader('X-API-Key', '{!$Credential.Password}');
+    req.setHeader('X-Tenant-Id', 'sf-sandbox');
     req.setHeader('Idempotency-Key', 'sf-case-' + caseRec.Id);
     req.setTimeout(60000);
 
@@ -43,7 +45,7 @@ public with sharing class QmsGenAiClient {
         'priority'    => sfPriorityToQms(caseRec.Priority),
         'title'       => caseRec.Subject,
         'description' => caseRec.Description,
-        'site'        => caseRec.AccountId,
+        'site'        => String.valueOf(caseRec.AccountId),
         'regulatoryRef' => new List<String>{'21 CFR 820'}
       }
     };
@@ -76,6 +78,8 @@ public with sharing class QmsGenAiClient {
     req.setEndpoint(NAMED_CRED + '/api/v1/integrations/quality-event/capa');
     req.setMethod('POST');
     req.setHeader('Content-Type', 'application/json');
+    req.setHeader('X-API-Key', '{!$Credential.Password}');
+    req.setHeader('X-Tenant-Id', 'sf-sandbox');
     req.setHeader('Idempotency-Key', 'sf-agent-' + caseRec.Id);
     req.setTimeout(120000);
 
@@ -106,11 +110,14 @@ public with sharing class QmsGenAiClient {
 
   /**
    * Return the API host used to construct "Open in QMS" links from the LWC.
-   * TODO: read from QmsSettings__c.Api_Host__c once the Custom Setting is populated.
    */
   @AuraEnabled(cacheable=true)
   public static String getApiHost() {
-    return 'https://qms.example.com';
+    QmsSettings__c settings = QmsSettings__c.getOrgDefaults();
+    if (settings != null && String.isNotBlank(settings.Api_Host__c)) {
+      return settings.Api_Host__c;
+    }
+    return 'https://qms-web-ovn9.onrender.com';
   }
 
   @TestVisible

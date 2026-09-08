@@ -12,59 +12,112 @@ export default class QmsCreateCapa extends LightningElement {
   @track apiHost = '';
 
   @wire(getApiHost)
-  wiredHost({ data, error }) {
+  wiredHost({ data }) {
     if (data) {
-      this.apiHost = data;
-    } else if (error) {
-      // Non-fatal - link will fall back to empty host.
-      this.apiHost = '';
+      this.apiHost = data.replace(/\/$/, '');
     }
   }
 
   get hasResult() {
-    return this.result !== undefined && this.result !== null;
+    return Boolean(this.result);
+  }
+
+  get data() {
+    return this.result && this.result.data ? this.result.data : {};
+  }
+
+  get draft() {
+    return this.data.capa && this.data.capa.draft ? this.data.capa.draft : {};
+  }
+
+  get record() {
+    return this.data.record || {};
+  }
+
+  get ui() {
+    return this.data.ui || {};
+  }
+
+  get connectionLabel() {
+    return this.hasResult ? 'Connected' : 'Ready';
+  }
+
+  get connectionClass() {
+    return this.hasResult ? 'badge badge-ok' : 'badge';
+  }
+
+  get modelLabel() {
+    const provider = this.draft._provider;
+    const model = this.draft._model;
+    return provider ? `LLM: ${provider} / ${model || 'model'}` : 'QMS GenAI pipeline';
+  }
+
+  get recordTitle() {
+    return this.record.title || 'Salesforce Case';
+  }
+
+  get recordMeta() {
+    const parts = [this.record.id, this.record.type, this.record.sector, this.record.priority]
+      .filter(Boolean);
+    return parts.join(' | ');
+  }
+
+  get capaId() {
+    return this.data.capa && this.data.capa.id ? this.data.capa.id : '';
+  }
+
+  get reviewState() {
+    return this.data.capa && this.data.capa.reviewState ? this.data.capa.reviewState : 'Under Review';
   }
 
   get rootCause() {
-    return this.extract('rootCause');
+    return this.draft.rootCause || '';
+  }
+
+  get immediateAction() {
+    return this.draft.immediateAction || '';
   }
 
   get correctiveAction() {
-    return this.extract('correctiveAction');
+    return this.draft.correctiveAction || '';
   }
 
   get preventiveAction() {
-    return this.extract('preventiveAction');
+    return this.draft.preventiveAction || '';
+  }
+
+  get effectivenessCheck() {
+    return this.draft.effectivenessCheck || '';
   }
 
   get riskRating() {
-    return this.extract('riskRating');
+    return this.draft.riskRating || '';
+  }
+
+  get owner() {
+    return this.draft.proposedOwner || this.draft.capaOwner || '';
+  }
+
+  get closureDays() {
+    return this.draft.estimatedClosureDays ? `${this.draft.estimatedClosureDays} days` : '';
+  }
+
+  get rcaQualityScore() {
+    return this.draft.rcaQualityScore === undefined ? 'Not scored' : `${this.draft.rcaQualityScore}%`;
   }
 
   get openInQmsUrl() {
-    const path = this.result && this.result.data && this.result.data.ui
-      ? this.result.data.ui.openDraftUrl
-      : '';
-    if (path) {
-      return this.apiHost + path;
+    if (this.ui.openDraftUrl) {
+      return this.apiHost + this.ui.openDraftUrl;
     }
-    const recordId = this.result && this.result.data && this.result.data.record
-      ? this.result.data.record.id
-      : this.result && this.result.recordId;
-    if (!recordId) {
-      return '#';
-    }
-    return this.apiHost + '/capa/create?id=' + encodeURIComponent(recordId);
-  }
-
-  extract(key) {
-    if (!this.result) return '';
-    if (this.result[key]) return this.result[key];
-    if (this.result.capa && this.result.capa[key]) return this.result.capa[key];
-    if (this.result.data && this.result.data.capa && this.result.data.capa.draft) {
-      return this.result.data.capa.draft[key] || '';
+    if (this.record.id) {
+      return `${this.apiHost}/capa/create?id=${encodeURIComponent(this.record.id)}`;
     }
     return '';
+  }
+
+  get hasQmsUrl() {
+    return Boolean(this.openInQmsUrl);
   }
 
   handleGenerate() {
@@ -78,15 +131,15 @@ export default class QmsCreateCapa extends LightningElement {
         this.loading = false;
         this.dispatchEvent(
           new ShowToastEvent({
-            title: 'CAPA generated',
-            message: 'Draft CAPA created successfully.',
+            title: 'CAPA draft created',
+            message: this.capaId ? `${this.capaId} is ready for QMS review.` : 'QMS draft is ready for review.',
             variant: 'success'
           })
         );
       })
       .catch((err) => {
         this.loading = false;
-        this.error = (err && err.body && err.body.message) ? err.body.message : String(err);
+        this.error = err && err.body && err.body.message ? err.body.message : String(err);
         this.dispatchEvent(
           new ShowToastEvent({
             title: 'CAPA generation failed',
@@ -95,5 +148,9 @@ export default class QmsCreateCapa extends LightningElement {
           })
         );
       });
+  }
+
+  openInQms() {
+    window.open(this.openInQmsUrl, '_blank', 'noopener');
   }
 }
