@@ -213,6 +213,12 @@ def save_capa(capa: Dict) -> Dict:
     with SessionLocal() as db:
         existing = db.query(CAPARecord).filter(
             CAPARecord.capa_id == capa.get("capaId")).first()
+        source_record_id = (capa.get("sourceRecordId") or "").strip()
+        if existing is None and source_record_id:
+            existing = db.query(CAPARecord).filter(
+                CAPARecord.record_id == source_record_id,
+                CAPARecord.status.in_(["Draft Generated", "Under Review", "Pending Correction"]),
+            ).order_by(CAPARecord.created_at.desc()).first()
         if existing:
             existing.root_cause             = capa.get("rootCause",            existing.root_cause)
             existing.immediate_action       = capa.get("immediateAction",      existing.immediate_action)
@@ -232,7 +238,7 @@ def save_capa(capa: Dict) -> Dict:
         else:
             new_c = CAPARecord(
                 capa_id=capa.get("capaId", ""),
-                record_id=capa.get("sourceRecordId", ""),
+                record_id=source_record_id,
                 root_cause=capa.get("rootCause", ""),
                 immediate_action=capa.get("immediateAction", ""),
                 corrective_action=capa.get("correctiveAction", ""),
