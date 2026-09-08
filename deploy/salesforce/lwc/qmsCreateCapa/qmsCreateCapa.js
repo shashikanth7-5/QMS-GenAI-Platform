@@ -42,16 +42,28 @@ export default class QmsCreateCapa extends LightningElement {
   }
 
   get openInQmsUrl() {
-    if (!this.result || !this.result.recordId) {
+    const path = this.result && this.result.data && this.result.data.ui
+      ? this.result.data.ui.openDraftUrl
+      : '';
+    if (path) {
+      return this.apiHost + path;
+    }
+    const recordId = this.result && this.result.data && this.result.data.record
+      ? this.result.data.record.id
+      : this.result && this.result.recordId;
+    if (!recordId) {
       return '#';
     }
-    return this.apiHost + '/records/' + this.result.recordId;
+    return this.apiHost + '/capa/create?id=' + encodeURIComponent(recordId);
   }
 
   extract(key) {
     if (!this.result) return '';
     if (this.result[key]) return this.result[key];
     if (this.result.capa && this.result.capa[key]) return this.result.capa[key];
+    if (this.result.data && this.result.data.capa && this.result.data.capa.draft) {
+      return this.result.data.capa.draft[key] || '';
+    }
     return '';
   }
 
