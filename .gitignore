@@ -2,6 +2,9 @@
 .env
 .env.*
 !.env.example
+!*.example
+deploy/cloudrun/env.yaml
+deploy/cloudrun/secrets.ps1
 *.pem
 *.key
 
