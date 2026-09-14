@@ -20,7 +20,8 @@ COPY . .
 # Non-root runtime user — running as root inside the container gives
 # code-execution incidents an easier blast radius. UID/GID chosen high
 # enough not to collide with typical distro users.
-RUN groupadd --system --gid 10001 qms \
+RUN mkdir -p /app/data /app/data/uploads /app/data/chroma_db \
+    && groupadd --system --gid 10001 qms \
     && useradd --system --uid 10001 --gid qms --home /app --shell /sbin/nologin qms \
     && chown -R qms:qms /app
 USER qms
