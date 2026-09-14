@@ -3,7 +3,6 @@
     <fullName>Api_Host__c</fullName>
     <description>Base URL of the QMS GenAI Platform, used to build "Open in QMS" deep links from the LWC.</description>
     <label>API Host</label>
-    <length>255</length>
     <required>false</required>
     <type>Url</type>
 </CustomField>
