@@ -1,15 +1,22 @@
 <template>
   <lightning-card title="QMS GenAI" icon-name="standard:case">
     <div class="panel">
-      <div class="status-row">
-        <span class={connectionClass}>{connectionLabel}</span>
-        <span class="muted">{modelLabel}</span>
+      <div class="hero">
+        <div>
+          <span class="badge badge-ok">Connected</span>
+          <h2>{record.title}</h2>
+          <p>{recordMeta}</p>
+        </div>
+        <div class="hero-metric">
+          <span>AI model</span>
+          <strong>{modelLabel}</strong>
+        </div>
       </div>
 
-      <template if:true={loading}>
+      <template if:true={isBusy}>
         <div class="loading">
           <lightning-spinner alternative-text="Running QMS GenAI..." size="small"></lightning-spinner>
-          <span>Running RCA and CAPA agent pipeline...</span>
+          <span>{loadingMessage}</span>
         </div>
       </template>
 
@@ -17,82 +24,122 @@
         <div class="error">{error}</div>
       </template>
 
-      <template if:true={hasResult}>
-        <section class="summary">
-          <div>
-            <span class="label">Record loaded</span>
-            <strong>{recordTitle}</strong>
-            <span class="muted">{recordMeta}</span>
+      <section class="toolbar">
+        <lightning-combobox
+          label="RCA method"
+          value={selectedMethod}
+          options={methodOptions}
+          onchange={handleMethodChange}>
+        </lightning-combobox>
+        <lightning-button variant="brand" label="Run RCA Analysis" onclick={handleRunRca} disabled={isBusy}></lightning-button>
+        <lightning-button variant="neutral" label="Choose Model" onclick={handleLoadModels} disabled={isBusy}></lightning-button>
+        <lightning-button variant="brand" label="Generate CAPA Draft" onclick={handleGenerateDraft} disabled={isBusy}></lightning-button>
+      </section>
+
+      <section class="grid">
+        <div class="block">
+          <div class="block-head">
+            <h3>Root Cause Analysis</h3>
+            <span class="pill">{rcaScore}</span>
           </div>
-          <div>
-            <span class="label">CAPA draft</span>
-            <strong>{capaId}</strong>
-            <span class="pill">{reviewState}</span>
+          <lightning-textarea
+            label="Root cause statement"
+            data-field="rootCause"
+            value={rootCauseText}
+            onchange={handleDraftChange}>
+          </lightning-textarea>
+        </div>
+
+        <div class="block">
+          <div class="block-head">
+            <h3>Attachments</h3>
+            <span class="muted">Saved on the Salesforce Case</span>
+          </div>
+          <lightning-file-upload
+            label="Attach investigation files"
+            name="qmsCaseFiles"
+            record-id={recordId}
+            multiple
+            onuploadfinished={handleUploadFinished}>
+          </lightning-file-upload>
+        </div>
+      </section>
+
+      <template if:true={hasModels}>
+        <section class="block">
+          <div class="block-head">
+            <h3>AI Improvement Models</h3>
+            <span class="muted">Select one RCA proposal before generating/saving CAPA</span>
+          </div>
+          <div class="models">
+            <template for:each={rcaModels} for:item="model">
+              <button key={model.index} class="model-card" data-index={model.index} onclick={handleSelectModel}>
+                <strong>{model.label}</strong>
+                <span>{model.meta}</span>
+                <p>{model.summary}</p>
+              </button>
+            </template>
           </div>
         </section>
+      </template>
 
-        <section class="block">
-          <h3>Root Cause Analysis</h3>
-          <p>{rootCause}</p>
-          <div class="score-row">
-            <span>RCA quality score</span>
-            <strong>{rcaQualityScore}</strong>
-          </div>
-        </section>
-
-        <section class="block">
+      <section class="block">
+        <div class="block-head">
           <h3>CAPA Draft</h3>
-          <dl>
-            <dt>Immediate Action</dt>
-            <dd>{immediateAction}</dd>
-            <dt>Corrective Action</dt>
-            <dd>{correctiveAction}</dd>
-            <dt>Preventive Action</dt>
-            <dd>{preventiveAction}</dd>
-            <dt>Effectiveness Check</dt>
-            <dd>{effectivenessCheck}</dd>
-          </dl>
-        </section>
+          <span class="pill">{capaStatus}</span>
+        </div>
+        <div class="form-grid">
+          <lightning-textarea label="Immediate / containment action" data-field="immediateAction" value={draft.immediateAction} onchange={handleDraftChange}></lightning-textarea>
+          <lightning-textarea label="Corrective action" data-field="correctiveAction" value={draft.correctiveAction} onchange={handleDraftChange}></lightning-textarea>
+          <lightning-textarea label="Preventive action" data-field="preventiveAction" value={draft.preventiveAction} onchange={handleDraftChange}></lightning-textarea>
+          <lightning-textarea label="Effectiveness check" data-field="effectivenessCheck" value={draft.effectivenessCheck} onchange={handleDraftChange}></lightning-textarea>
+          <lightning-input label="Risk rating" data-field="riskRating" value={draft.riskRating} onchange={handleDraftChange}></lightning-input>
+          <lightning-input label="CAPA owner" data-field="capaOwner" value={draft.capaOwner} onchange={handleDraftChange}></lightning-input>
+          <lightning-input type="number" label="Estimated closure days" data-field="estimatedClosureDays" value={closureDays} onchange={handleDraftChange}></lightning-input>
+        </div>
+      </section>
 
-        <section class="metrics">
-          <div>
-            <span class="label">Risk</span>
-            <strong>{riskRating}</strong>
-          </div>
-          <div>
-            <span class="label">Owner</span>
-            <strong>{owner}</strong>
-          </div>
-          <div>
-            <span class="label">Closure</span>
-            <strong>{closureDays}</strong>
-          </div>
-        </section>
-      </template>
-
-      <template if:false={hasResult}>
-        <p class="intro">
-          Create an RCA-backed CAPA draft in QMS from this Salesforce Case.
-        </p>
-      </template>
+      <section class="metrics">
+        <div>
+          <span>Time saving vs manual</span>
+          <strong>{timeSavedLabel}</strong>
+        </div>
+        <div>
+          <span>CAPA destination</span>
+          <strong>QMS + Salesforce related record</strong>
+        </div>
+      </section>
 
       <div class="actions">
-        <lightning-button
-          variant="brand"
-          label="Create CAPA with AI"
-          title="Create CAPA with AI"
-          onclick={handleGenerate}
-          disabled={loading}>
-        </lightning-button>
-        <template if:true={hasQmsUrl}>
-          <lightning-button
-            variant="neutral"
-            label="Open in QMS"
-            title="Open in QMS"
-            onclick={openInQms}>
-          </lightning-button>
-        </template>
+        <lightning-button variant="brand" label="Save CAPA" onclick={handleSaveDraft} disabled={isBusy}></lightning-button>
+        <lightning-button variant="neutral" label="Refresh Related CAPAs" onclick={handleRefreshRelated}></lightning-button>
+        <lightning-button variant="neutral" label="Open in QMS" onclick={openInQms}></lightning-button>
       </div>
+
+      <section class="block">
+        <div class="block-head">
+          <h3>Related CAPA Records</h3>
+          <span class="muted">Linked to this Case in Salesforce</span>
+        </div>
+        <template if:true={hasRelatedCapas}>
+          <div class="related-list">
+            <template for:each={relatedCapas} for:item="capa">
+              <div key={capa.id} class="related-row">
+                <div>
+                  <a data-id={capa.id} onclick={openSalesforceCapa}>{capa.name}</a>
+                  <span>{capa.qmsCapaId}</span>
+                </div>
+                <span>{capa.status}</span>
+                <span>{capa.risk}</span>
+                <span>{capa.owner}</span>
+              </div>
+            </template>
+          </div>
+        </template>
+        <template if:false={hasRelatedCapas}>
+          <p class="empty">No CAPAs linked yet. Generate and save a draft from this panel.</p>
+        </template>
+      </section>
     </div>
   </lightning-card>
 </template>

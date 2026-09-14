@@ -1,18 +1,46 @@
 .panel {
+  background: #f6f8fb;
   padding: 1rem;
 }
 
-.status-row,
-.actions,
-.score-row {
-  align-items: center;
+.hero {
+  align-items: flex-start;
+  background: #083763;
+  border-radius: 0.4rem;
+  color: #fff;
   display: flex;
-  gap: 0.75rem;
+  gap: 1rem;
+  justify-content: space-between;
+  margin-bottom: 0.8rem;
+  padding: 1rem;
 }
 
-.status-row {
-  justify-content: space-between;
-  margin-bottom: 0.75rem;
+.hero h2 {
+  font-size: 1rem;
+  font-weight: 800;
+  margin: 0.45rem 0 0.2rem;
+}
+
+.hero p,
+.hero-metric span {
+  color: #c7d7eb;
+  font-size: 0.72rem;
+}
+
+.muted {
+  color: #6b7a90;
+  font-size: 0.72rem;
+}
+
+.hero-metric {
+  min-width: 12rem;
+  text-align: right;
+}
+
+.hero-metric strong,
+.metrics strong {
+  display: block;
+  font-size: 0.86rem;
 }
 
 .badge {
@@ -20,8 +48,9 @@
   border: 1px solid #bfd4ff;
   border-radius: 999px;
   color: #174ea6;
-  font-size: 0.75rem;
-  font-weight: 700;
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 800;
   padding: 0.15rem 0.55rem;
 }
 
@@ -31,61 +60,50 @@
   color: #0b6b3a;
 }
 
-.muted,
-.label {
-  color: #5f6f89;
-  display: block;
-  font-size: 0.72rem;
+.toolbar,
+.actions {
+  align-items: end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-bottom: 0.8rem;
 }
 
-.summary,
+.toolbar lightning-combobox {
+  min-width: 10rem;
+}
+
+.grid,
+.form-grid,
 .metrics {
   display: grid;
   gap: 0.75rem;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  margin-bottom: 0.9rem;
 }
 
-.metrics {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.summary > div,
-.metrics > div,
-.block {
-  background: #f8fbff;
-  border: 1px solid #d9e5f6;
-  border-radius: 0.35rem;
+.block,
+.metrics > div {
+  background: #fff;
+  border: 1px solid #d8e2f0;
+  border-radius: 0.4rem;
+  margin-bottom: 0.75rem;
   padding: 0.75rem;
 }
 
-.block {
-  margin-bottom: 0.8rem;
+.block-head {
+  align-items: center;
+  display: flex;
+  gap: 0.5rem;
+  justify-content: space-between;
+  margin-bottom: 0.6rem;
 }
 
 .block h3 {
-  color: #1f2f46;
-  font-size: 0.78rem;
-  font-weight: 800;
+  color: #172033;
+  font-size: 0.76rem;
+  font-weight: 900;
   letter-spacing: 0.04em;
-  margin: 0 0 0.45rem;
-  text-transform: uppercase;
-}
-
-.block p,
-.block dd {
-  color: #1f2f46;
-  font-size: 0.82rem;
-  line-height: 1.45;
-  margin: 0 0 0.5rem;
-}
-
-.block dt {
-  color: #5f6f89;
-  font-size: 0.7rem;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  margin-top: 0.65rem;
+  margin: 0;
   text-transform: uppercase;
 }
 
@@ -95,22 +113,79 @@
   border-radius: 999px;
   color: #8a5a00;
   display: inline-block;
-  font-size: 0.72rem;
-  font-weight: 700;
-  margin-top: 0.25rem;
+  font-size: 0.7rem;
+  font-weight: 800;
   padding: 0.1rem 0.5rem;
 }
 
-.loading,
-.error,
-.intro {
-  margin: 0.7rem 0;
+.models {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.model-card {
+  background: #f8fbff;
+  border: 1px solid #bfd4ff;
+  border-radius: 0.35rem;
+  color: #172033;
+  cursor: pointer;
+  padding: 0.65rem;
+  text-align: left;
+}
+
+.model-card strong,
+.model-card span {
+  display: block;
+}
+
+.model-card span {
+  color: #52657f;
+  font-size: 0.72rem;
+  margin: 0.15rem 0;
+}
+
+.model-card p,
+.empty {
+  font-size: 0.78rem;
+  line-height: 1.4;
+  margin: 0.35rem 0 0;
+}
+
+.related-list {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.related-row {
+  align-items: center;
+  border-top: 1px solid #e1e8f2;
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: 1.4fr 0.8fr 0.6fr 1fr;
+  padding: 0.45rem 0;
+}
+
+.related-row a {
+  color: #0b5cab;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.related-row span {
+  color: #52657f;
+  display: block;
+  font-size: 0.75rem;
 }
 
 .loading {
   align-items: center;
+  background: #eef6ff;
+  border: 1px solid #c9def8;
+  border-radius: 0.35rem;
   display: flex;
   gap: 0.75rem;
+  margin-bottom: 0.8rem;
+  padding: 0.75rem;
 }
 
 .error {
@@ -118,5 +193,26 @@
   border: 1px solid #f5b5b5;
   border-radius: 0.35rem;
   color: #b42318;
+  margin-bottom: 0.8rem;
   padding: 0.75rem;
+}
+
+@media (max-width: 900px) {
+  .hero,
+  .toolbar,
+  .actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .grid,
+  .form-grid,
+  .metrics,
+  .related-row {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-metric {
+    text-align: left;
+  }
 }

@@ -631,6 +631,28 @@ def api_rca():
         return _err(str(exc), 500, "rca_error")
 
 
+@api_v1_bp.route("/rca/propose", methods=["POST"])
+@require_api_key
+def api_rca_propose():
+    body = request.get_json(silent=True) or {}
+    method = body.get("method", "fishbone")
+    record = body.get("record")
+    if not record:
+        rid = body.get("record_id") or body.get("recordId")
+        if not rid:
+            return _err("Provide record_id or record object", 400)
+        record = get_record_by_id(rid)
+        if not record:
+            return _err(f"Record {rid} not found", 404, "not_found")
+    try:
+        from services.ai_service import propose_rca_models
+        proposals = propose_rca_models(record, method)
+        return _ok(proposals)
+    except Exception as exc:
+        log.exception("api_v1.rca_propose.failed")
+        return _err(str(exc), 500, "rca_propose_error")
+
+
 # ══════════════════════════════════════════════════════════════
 # ANALYTICS
 # ══════════════════════════════════════════════════════════════
