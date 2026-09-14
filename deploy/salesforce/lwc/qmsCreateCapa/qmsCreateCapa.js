@@ -1,9 +1,11 @@
 import { LightningElement, api, track } from 'lwc';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import getCaseContext from '@salesforce/apex/QmsGenAiClient.getCaseContext';
-import generateCapa from '@salesforce/apex/QmsGenAiClient.generateCapa';
+import generateCapaFromRca from '@salesforce/apex/QmsGenAiClient.generateCapaFromRca';
 import runRca from '@salesforce/apex/QmsGenAiClient.runRca';
+import reassessRca from '@salesforce/apex/QmsGenAiClient.reassessRca';
 import proposeRcaModels from '@salesforce/apex/QmsGenAiClient.proposeRcaModels';
+import runAgentPipeline from '@salesforce/apex/QmsGenAiClient.runAgentPipeline';
 import saveCapaDraft from '@salesforce/apex/QmsGenAiClient.saveCapaDraft';
 import listRelatedCapas from '@salesforce/apex/QmsGenAiClient.listRelatedCapas';
 
@@ -21,6 +23,7 @@ export default class QmsCreateCapa extends LightningElement {
   @track apiHost = '';
   @track selectedMethod = 'fishbone';
   @track lastSave;
+  @track approvalRequested = false;
 
   connectedCallback() {
     this.loadContext();
@@ -98,6 +101,11 @@ export default class QmsCreateCapa extends LightningElement {
     return this.draft.rootCause ? '11h 52m saved per event' : 'Awaiting AI processing';
   }
 
+  get attachmentLabel() {
+    const count = this.record.attachmentCount || 0;
+    return `${count}/15 files available for RCA context`;
+  }
+
   loadContext() {
     this.setBusy('Loading QMS context...');
     getCaseContext({ caseId: this.recordId })
@@ -117,6 +125,16 @@ export default class QmsCreateCapa extends LightningElement {
   handleDraftChange(event) {
     const field = event.target.dataset.field;
     this.draft = { ...this.draft, [field]: event.target.value };
+  }
+
+  buildRcaPayload() {
+    return {
+      ...this.rca,
+      rootCause: this.rootCauseText,
+      method: this.selectedMethod,
+      _provider: this.draft._provider || this.rca._provider,
+      _model: this.draft._model || this.rca._model
+    };
   }
 
   handleRunRca() {
@@ -150,6 +168,23 @@ export default class QmsCreateCapa extends LightningElement {
       .catch((err) => this.handleError('Error loading models', err));
   }
 
+  handleReassessRca() {
+    this.setBusy('Reassessing RCA score...');
+    reassessRca({
+      caseId: this.recordId,
+      method: this.selectedMethod,
+      rcaJson: JSON.stringify(this.buildRcaPayload())
+    })
+      .then((res) => {
+        const data = res.data || res;
+        this.rca = { ...this.rca, ...data };
+        this.draft = { ...this.draft, rcaQualityScore: data.overall_score };
+        this.toast('RCA reassessed', data.verdict_msg || this.rcaScore, 'success');
+        this.clearBusy();
+      })
+      .catch((err) => this.handleError('RCA reassessment failed', err));
+  }
+
   handleSelectModel(event) {
     const index = Number(event.currentTarget.dataset.index);
     const selected = this.rcaModels[index];
@@ -168,7 +203,7 @@ export default class QmsCreateCapa extends LightningElement {
 
   handleGenerateDraft() {
     this.setBusy('Generating CAPA draft...');
-    generateCapa({ caseId: this.recordId })
+    generateCapaFromRca({ caseId: this.recordId, rcaJson: JSON.stringify(this.buildRcaPayload()) })
       .then((res) => {
         const data = res.data || res;
         const capa = data.capa || {};
@@ -183,12 +218,30 @@ export default class QmsCreateCapa extends LightningElement {
       .catch((err) => this.handleError('CAPA generation failed', err));
   }
 
+  handleRunAgents() {
+    this.setBusy('Running QMS agent workflow...');
+    runAgentPipeline({ caseId: this.recordId, saveDraft: false })
+      .then((res) => {
+        const data = res.data || res;
+        const capa = data.capa || {};
+        const draft = capa.draft || {};
+        this.draft = { ...this.draft, ...draft };
+        this.toast('Agent workflow completed', data.integrationStatus || 'completed', 'success');
+        this.clearBusy();
+      })
+      .catch((err) => this.handleError('Agent workflow failed', err));
+  }
+
   handleSaveDraft() {
     this.setBusy('Saving CAPA to QMS and Salesforce...');
     saveCapaDraft({ caseId: this.recordId, draftJson: JSON.stringify(this.draft) })
       .then((res) => {
         this.lastSave = res;
         this.relatedCapas = res.relatedCapas || [];
+        this.approvalRequested = window.confirm('CAPA draft saved under this Salesforce Case. Do you want to open the QMS approval/review page now?');
+        if (this.approvalRequested) {
+          this.openInQms();
+        }
         this.toast('CAPA saved', `${res.qmsCapaId || 'Draft'} is linked to this Case.`, 'success');
         this.clearBusy();
       })
@@ -205,7 +258,8 @@ export default class QmsCreateCapa extends LightningElement {
 
   handleUploadFinished(event) {
     const count = event.detail.files.length;
-    this.toast('Attachment added', `${count} Salesforce file(s) attached to the Case.`, 'success');
+    this.toast('Attachment added', `${count} Salesforce file(s) attached to the Case. Refresh context before RCA.`, 'success');
+    this.loadContext();
   }
 
   openInQms() {

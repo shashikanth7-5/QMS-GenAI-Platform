@@ -32,8 +32,10 @@
           onchange={handleMethodChange}>
         </lightning-combobox>
         <lightning-button variant="brand" label="Run RCA Analysis" onclick={handleRunRca} disabled={isBusy}></lightning-button>
+        <lightning-button variant="neutral" label="Reassess RCA Score" onclick={handleReassessRca} disabled={isBusy}></lightning-button>
         <lightning-button variant="neutral" label="Choose Model" onclick={handleLoadModels} disabled={isBusy}></lightning-button>
         <lightning-button variant="brand" label="Generate CAPA Draft" onclick={handleGenerateDraft} disabled={isBusy}></lightning-button>
+        <lightning-button variant="neutral" label="Run Agents" onclick={handleRunAgents} disabled={isBusy}></lightning-button>
       </section>
 
       <section class="grid">
@@ -53,7 +55,7 @@
         <div class="block">
           <div class="block-head">
             <h3>Attachments</h3>
-            <span class="muted">Saved on the Salesforce Case</span>
+            <span class="muted">{attachmentLabel}</span>
           </div>
           <lightning-file-upload
             label="Attach investigation files"
@@ -62,6 +64,7 @@
             multiple
             onuploadfinished={handleUploadFinished}>
           </lightning-file-upload>
+          <p class="hint">RCA uses Case fields plus the latest 15 Salesforce files. Text, CSV, JSON, XML, and log files include snippets; other files are included as traceable file context.</p>
         </div>
       </section>
 

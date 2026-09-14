@@ -145,10 +145,15 @@
 }
 
 .model-card p,
-.empty {
+.empty,
+.hint {
   font-size: 0.78rem;
   line-height: 1.4;
   margin: 0.35rem 0 0;
+}
+
+.hint {
+  color: #52657f;
 }
 
 .related-list {

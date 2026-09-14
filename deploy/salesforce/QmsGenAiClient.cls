@@ -4,12 +4,14 @@
 public with sharing class QmsGenAiClient {
 
   private static final String NAMED_CRED = 'callout:QMS_GenAI';
+  private static final Integer MAX_RCA_FILES = 15;
+  private static final Integer MAX_FILE_SNIPPET_CHARS = 2500;
 
   @AuraEnabled(cacheable=false)
   public static Map<String, Object> getCaseContext(Id caseId) {
     Case caseRec = loadCase(caseId);
     return new Map<String, Object>{
-      'record' => caseToQmsRecord(caseRec),
+      'record' => caseToQmsRecord(caseRec, true),
       'relatedCapas' => listRelatedCapas(caseId),
       'apiHost' => getApiHost()
     };
@@ -19,7 +21,20 @@ public with sharing class QmsGenAiClient {
   public static Map<String, Object> generateCapa(Id caseId) {
     Case caseRec = loadCase(caseId);
     HttpRequest req = baseRequest('/api/v1/capa/generate', 'POST', 'sf-capa-generate-' + caseRec.Id);
-    req.setBody(JSON.serialize(new Map<String, Object>{ 'record' => caseToQmsRecord(caseRec) }));
+    req.setBody(JSON.serialize(new Map<String, Object>{ 'record' => caseToQmsRecord(caseRec, true) }));
+    return sendJson(req, 'QMS /api/v1/capa/generate failed');
+  }
+
+  @AuraEnabled(cacheable=false)
+  public static Map<String, Object> generateCapaFromRca(Id caseId, String rcaJson) {
+    Case caseRec = loadCase(caseId);
+    Map<String, Object> record = caseToQmsRecord(caseRec, true);
+    Map<String, Object> rca = parseMap(rcaJson);
+    record.put('rca', rca);
+    record.put('rootCause', value(rca, 'rootCause'));
+
+    HttpRequest req = baseRequest('/api/v1/capa/generate', 'POST', 'sf-capa-generate-rca-' + caseRec.Id + '-' + DateTime.now().getTime());
+    req.setBody(JSON.serialize(new Map<String, Object>{ 'record' => record }));
     return sendJson(req, 'QMS /api/v1/capa/generate failed');
   }
 
@@ -29,10 +44,21 @@ public with sharing class QmsGenAiClient {
     String selectedMethod = String.isBlank(method) ? 'fishbone' : method;
     HttpRequest req = baseRequest('/api/v1/rca/analyze', 'POST', 'sf-rca-' + selectedMethod + '-' + caseRec.Id);
     req.setBody(JSON.serialize(new Map<String, Object>{
-      'record' => caseToQmsRecord(caseRec),
+      'record' => caseToQmsRecord(caseRec, true),
       'method' => selectedMethod
     }));
     return sendJson(req, 'QMS /api/v1/rca/analyze failed');
+  }
+
+  @AuraEnabled(cacheable=false)
+  public static Map<String, Object> reassessRca(Id caseId, String method, String rcaJson) {
+    String selectedMethod = String.isBlank(method) ? 'fishbone' : method;
+    HttpRequest req = baseRequest('/api/v1/rca/assess', 'POST', 'sf-rca-assess-' + caseId + '-' + DateTime.now().getTime());
+    req.setBody(JSON.serialize(new Map<String, Object>{
+      'method' => selectedMethod,
+      'rca_data' => parseMap(rcaJson)
+    }));
+    return sendJson(req, 'QMS /api/v1/rca/assess failed');
   }
 
   @AuraEnabled(cacheable=false)
@@ -41,7 +67,7 @@ public with sharing class QmsGenAiClient {
     String selectedMethod = String.isBlank(method) ? 'fishbone' : method;
     HttpRequest req = baseRequest('/api/v1/rca/propose', 'POST', 'sf-rca-models-' + selectedMethod + '-' + caseRec.Id);
     req.setBody(JSON.serialize(new Map<String, Object>{
-      'record' => caseToQmsRecord(caseRec),
+      'record' => caseToQmsRecord(caseRec, true),
       'method' => selectedMethod
     }));
     return sendJson(req, 'QMS /api/v1/rca/propose failed');
@@ -53,7 +79,7 @@ public with sharing class QmsGenAiClient {
     HttpRequest req = baseRequest('/api/v1/integrations/quality-event/capa', 'POST', 'sf-agent-' + caseRec.Id);
     req.setTimeout(120000);
     req.setBody(JSON.serialize(new Map<String, Object>{
-      'record' => caseToQmsRecord(caseRec),
+      'record' => caseToQmsRecord(caseRec, true),
       'options' => new Map<String, Object>{'saveDraft' => saveDraft}
     }));
     return sendJson(req, 'QMS /api/v1/integrations failed');
@@ -63,7 +89,7 @@ public with sharing class QmsGenAiClient {
   public static Map<String, Object> saveCapaDraft(Id caseId, String draftJson) {
     Case caseRec = loadCase(caseId);
     Map<String, Object> draft = parseMap(draftJson);
-    Map<String, Object> record = caseToQmsRecord(caseRec);
+    Map<String, Object> record = caseToQmsRecord(caseRec, false);
     String qmsRecordId = String.valueOf(record.get('id'));
 
     Map<String, Object> body = new Map<String, Object>{
@@ -176,8 +202,8 @@ public with sharing class QmsGenAiClient {
     ];
   }
 
-  private static Map<String, Object> caseToQmsRecord(Case caseRec) {
-    return new Map<String, Object>{
+  private static Map<String, Object> caseToQmsRecord(Case caseRec, Boolean includeFiles) {
+    Map<String, Object> record = new Map<String, Object>{
       'id' => String.valueOf(caseRec.Id),
       'externalId' => String.valueOf(caseRec.Id),
       'caseNumber' => caseRec.CaseNumber,
@@ -191,6 +217,82 @@ public with sharing class QmsGenAiClient {
       'owner' => UserInfo.getUserName(),
       'regulatoryRef' => new List<String>{'21 CFR 820.100', 'ISO 13485:2016'}
     };
+    if (includeFiles) {
+      List<Map<String, Object>> files = caseFileContext(caseRec.Id);
+      record.put('attachments', files);
+      record.put('attachmentCount', files.size());
+      if (!files.isEmpty()) {
+        record.put('attachmentSummary', attachmentSummary(files));
+      }
+    }
+    return record;
+  }
+
+  private static List<Map<String, Object>> caseFileContext(Id caseId) {
+    List<ContentDocumentLink> links = [
+      SELECT ContentDocument.LatestPublishedVersionId
+      FROM ContentDocumentLink
+      WHERE LinkedEntityId = :caseId
+      ORDER BY SystemModstamp DESC
+      LIMIT :MAX_RCA_FILES
+    ];
+    Set<Id> versionIds = new Set<Id>();
+    for (ContentDocumentLink link : links) {
+      if (link.ContentDocument.LatestPublishedVersionId != null) {
+        versionIds.add(link.ContentDocument.LatestPublishedVersionId);
+      }
+    }
+    if (versionIds.isEmpty()) {
+      return new List<Map<String, Object>>();
+    }
+
+    List<Map<String, Object>> files = new List<Map<String, Object>>();
+    for (ContentVersion version : [
+      SELECT Id, Title, FileExtension, FileType, ContentSize, VersionData
+      FROM ContentVersion
+      WHERE Id IN :versionIds
+      ORDER BY CreatedDate DESC
+    ]) {
+      Map<String, Object> file = new Map<String, Object>{
+        'id' => String.valueOf(version.Id),
+        'title' => version.Title,
+        'extension' => version.FileExtension,
+        'fileType' => version.FileType,
+        'sizeBytes' => version.ContentSize
+      };
+      String snippet = safeTextSnippet(version);
+      if (!String.isBlank(snippet)) {
+        file.put('textSnippet', snippet);
+      }
+      files.add(file);
+    }
+    return files;
+  }
+
+  private static String safeTextSnippet(ContentVersion version) {
+    String ext = String.isBlank(version.FileExtension) ? '' : version.FileExtension.toLowerCase();
+    if (!(ext == 'txt' || ext == 'csv' || ext == 'json' || ext == 'xml' || ext == 'log')) {
+      return '';
+    }
+    try {
+      String raw = version.VersionData == null ? '' : version.VersionData.toString();
+      return truncate(raw, MAX_FILE_SNIPPET_CHARS);
+    } catch (Exception e) {
+      return '';
+    }
+  }
+
+  private static String attachmentSummary(List<Map<String, Object>> files) {
+    List<String> parts = new List<String>();
+    for (Map<String, Object> file : files) {
+      String line = value(file, 'title') + ' (' + value(file, 'fileType') + ', ' + value(file, 'sizeBytes') + ' bytes)';
+      String snippet = value(file, 'textSnippet');
+      if (!String.isBlank(snippet)) {
+        line += ': ' + snippet;
+      }
+      parts.add(line);
+    }
+    return String.join(parts, '\n');
   }
 
   private static HttpRequest baseRequest(String path, String method, String idempotencyKey) {
