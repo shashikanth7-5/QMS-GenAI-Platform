@@ -138,14 +138,25 @@ public with sharing class QmsGenAiClient {
     shadow.Source_Case__c = caseRec.Id;
     shadow.QMS_CAPA_ID__c = qmsCapaId;
     shadow.Status__c = String.isBlank(value(data, 'status')) ? 'Under Review' : value(data, 'status');
+    shadow.Source_Record_ID__c = truncate(qmsRecordId, 80);
+    shadow.Source_Record_Type__c = truncate(String.valueOf(record.get('type')), 80);
+    shadow.Source_Record_Title__c = truncate(String.valueOf(record.get('title')), 255);
+    shadow.Source_Priority__c = truncate(String.valueOf(record.get('priority')), 40);
+    shadow.Site__c = truncate(String.valueOf(record.get('site')), 120);
+    shadow.Sector__c = truncate(String.valueOf(record.get('sector')), 80);
     shadow.Risk_Rating__c = truncate(valueOr(draft, 'riskRating', String.valueOf(record.get('priority'))), 40);
     shadow.CAPA_Owner__c = truncate(firstValue(draft, new List<String>{'capaOwner', 'proposedOwner'}), 120);
     shadow.Estimated_Closure_Days__c = closureDaysValue(draft.get('estimatedClosureDays'));
+    shadow.Target_Closure_Date__c = Date.today().addDays(closureDaysValue(draft.get('estimatedClosureDays')));
     shadow.Root_Cause__c = value(draft, 'rootCause');
     shadow.Immediate_Action__c = value(draft, 'immediateAction');
     shadow.Corrective_Action__c = value(draft, 'correctiveAction');
     shadow.Preventive_Action__c = value(draft, 'preventiveAction');
     shadow.Effectiveness_Check__c = value(draft, 'effectivenessCheck');
+    shadow.Effectiveness_Check_Required__c = truncate(value(draft, 'effectivenessCheckRequired'), 20);
+    shadow.Regulatory_References__c = regulatoryRefsText(draft);
+    shadow.Supporting_Documents__c = attachmentSummary(caseFileContext(caseRec.Id));
+    shadow.Additional_Notes__c = value(draft, 'notes');
     shadow.LLM_Provider__c = truncate(value(draft, '_provider'), 80);
     shadow.LLM_Model__c = truncate(value(draft, '_model'), 160);
     shadow.Impact_Scope__c = truncate(value(draft, 'impactScope'), 120);
@@ -172,7 +183,8 @@ public with sharing class QmsGenAiClient {
     for (QMS_CAPA__c row : [
       SELECT Id, Name, QMS_CAPA_ID__c, Status__c, Risk_Rating__c, CAPA_Owner__c,
              Estimated_Closure_Days__c, QMS_URL__c, LLM_Provider__c, LLM_Model__c,
-             Impact_Scope__c, Agent_Summary__c, CreatedDate
+             Impact_Scope__c, Agent_Summary__c, Root_Cause__c, Immediate_Action__c,
+             Corrective_Action__c, Preventive_Action__c, Target_Closure_Date__c, CreatedDate
       FROM QMS_CAPA__c
       WHERE Source_Case__c = :caseId
       ORDER BY CreatedDate DESC
@@ -191,6 +203,11 @@ public with sharing class QmsGenAiClient {
         'llmModel' => row.LLM_Model__c,
         'impactScope' => row.Impact_Scope__c,
         'agentSummary' => row.Agent_Summary__c,
+        'rootCause' => row.Root_Cause__c,
+        'immediateAction' => row.Immediate_Action__c,
+        'correctiveAction' => row.Corrective_Action__c,
+        'preventiveAction' => row.Preventive_Action__c,
+        'targetClosureDate' => row.Target_Closure_Date__c,
         'createdDate' => row.CreatedDate
       });
     }
@@ -397,6 +414,24 @@ public with sharing class QmsGenAiClient {
       return new List<String>{'21 CFR 820.100', 'ISO 13485:2016'};
     }
     return raw;
+  }
+
+  private static String regulatoryRefsText(Map<String, Object> draft) {
+    Object raw = normalizedRegulatoryRefs(draft);
+    List<String> values = new List<String>();
+    if (raw instanceof List<String>) {
+      for (String item : (List<String>) raw) {
+        if (!String.isBlank(item)) values.add(item);
+      }
+      return String.join(values, ', ');
+    }
+    if (raw instanceof List<Object>) {
+      for (Object item : (List<Object>) raw) {
+        if (item != null && !String.isBlank(String.valueOf(item))) values.add(String.valueOf(item));
+      }
+      return String.join(values, ', ');
+    }
+    return String.valueOf(raw);
   }
 
   private static String truncate(String raw, Integer maxLen) {
