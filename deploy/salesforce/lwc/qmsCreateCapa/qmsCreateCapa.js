@@ -24,6 +24,7 @@ export default class QmsCreateCapa extends LightningElement {
   @track selectedMethod = 'fishbone';
   @track lastSave;
   @track approvalRequested = false;
+  @track showModelModal = false;
 
   connectedCallback() {
     this.loadContext();
@@ -39,6 +40,10 @@ export default class QmsCreateCapa extends LightningElement {
 
   get hasRelatedCapas() {
     return this.relatedCapas.length > 0;
+  }
+
+  get hasRca() {
+    return Boolean(this.rootCauseText);
   }
 
   get modelLabel() {
@@ -106,6 +111,22 @@ export default class QmsCreateCapa extends LightningElement {
     return `${count}/15 files available for RCA context`;
   }
 
+  get yesNoOptions() {
+    return [
+      { label: 'No', value: 'No' },
+      { label: 'Yes', value: 'Yes' }
+    ];
+  }
+
+  get riskOptions() {
+    return [
+      { label: 'Low', value: 'Low' },
+      { label: 'Medium', value: 'Medium' },
+      { label: 'High', value: 'High' },
+      { label: 'Critical', value: 'Critical' }
+    ];
+  }
+
   loadContext() {
     this.setBusy('Loading QMS context...');
     getCaseContext({ caseId: this.recordId })
@@ -145,14 +166,50 @@ export default class QmsCreateCapa extends LightningElement {
         this.rca = data.rca || {};
         this.draft = { ...this.draft, rootCause: this.rootCauseText };
         this.toast('RCA completed', this.modelLabel, 'success');
-        this.clearBusy();
+        return this.scoreAndSuggestModels();
       })
+      .then(() => this.clearBusy())
       .catch((err) => this.handleError('RCA failed', err));
   }
 
   handleLoadModels() {
     this.setBusy('Loading RCA model options...');
-    proposeRcaModels({ caseId: this.recordId, method: this.selectedMethod })
+    this.loadModels()
+      .then((res) => {
+        this.showModelModal = true;
+        this.toast('RCA models loaded', `${this.rcaModels.length} model options available.`, 'success');
+        this.clearBusy();
+      })
+      .catch((err) => this.handleError('Error loading models', err));
+  }
+
+  handleReassessRca() {
+    this.setBusy('Reassessing RCA score...');
+    this.scoreAndSuggestModels()
+      .then(() => this.clearBusy())
+      .catch((err) => this.handleError('RCA reassessment failed', err));
+  }
+
+  scoreAndSuggestModels() {
+    return reassessRca({
+      caseId: this.recordId,
+      method: this.selectedMethod,
+      rcaJson: JSON.stringify(this.buildRcaPayload())
+    })
+      .then((res) => {
+        const data = res.data || res;
+        this.rca = { ...this.rca, ...data };
+        this.draft = { ...this.draft, rcaQualityScore: data.overall_score };
+        return this.loadModels();
+      })
+      .then(() => {
+        this.showModelModal = this.rcaModels.length > 0;
+        this.toast('RCA scored', `${this.rcaScore}. Select an AI model if you want to improve the RCA.`, 'success');
+      });
+  }
+
+  loadModels() {
+    return proposeRcaModels({ caseId: this.recordId, method: this.selectedMethod })
       .then((res) => {
         const data = res.data || res;
         this.rcaModels = (data.models || []).map((model, index) => ({
@@ -162,27 +219,8 @@ export default class QmsCreateCapa extends LightningElement {
           summary: model.rootCause || model.description || 'LLM-generated RCA option',
           meta: `${model._provider || data.provider || 'LLM'} / ${model._model || data.model || 'model'}`
         }));
-        this.toast('RCA models loaded', `${this.rcaModels.length} model options available.`, 'success');
-        this.clearBusy();
-      })
-      .catch((err) => this.handleError('Error loading models', err));
-  }
-
-  handleReassessRca() {
-    this.setBusy('Reassessing RCA score...');
-    reassessRca({
-      caseId: this.recordId,
-      method: this.selectedMethod,
-      rcaJson: JSON.stringify(this.buildRcaPayload())
-    })
-      .then((res) => {
-        const data = res.data || res;
-        this.rca = { ...this.rca, ...data };
-        this.draft = { ...this.draft, rcaQualityScore: data.overall_score };
-        this.toast('RCA reassessed', data.verdict_msg || this.rcaScore, 'success');
-        this.clearBusy();
-      })
-      .catch((err) => this.handleError('RCA reassessment failed', err));
+        return data;
+      });
   }
 
   handleSelectModel(event) {
@@ -198,7 +236,12 @@ export default class QmsCreateCapa extends LightningElement {
       _provider: selected._provider,
       _model: selected._model
     };
+    this.showModelModal = false;
     this.toast('RCA model applied', selected.label, 'success');
+  }
+
+  closeModelModal() {
+    this.showModelModal = false;
   }
 
   handleGenerateDraft() {
@@ -210,7 +253,14 @@ export default class QmsCreateCapa extends LightningElement {
         this.draft = {
           ...capa,
           rootCause: capa.rootCause || this.rootCauseText,
-          capaOwner: capa.capaOwner || capa.proposedOwner || 'Quality Assurance Manager'
+          capaOwner: capa.capaOwner || capa.proposedOwner || 'Quality Assurance Manager',
+          impactScope: capa.impactScope || 'Product impact',
+          repeatEvent: capa.repeatEvent || 'No',
+          supplierRelated: capa.supplierRelated || 'No',
+          authorityNotificationRequired: capa.authorityNotificationRequired || 'No',
+          effectivenessCheckRequired: capa.effectivenessCheckRequired || 'Yes',
+          affectedFunctions: capa.affectedFunctions || 'QA, manufacturing, supplier contact, patient/user if applicable',
+          impactAssessmentDetail: capa.impactAssessmentDetail || 'CAPA eligible: risk/impact conditions support draft creation and quality review.'
         };
         this.toast('CAPA draft generated', this.modelLabel, 'success');
         this.clearBusy();
@@ -225,7 +275,12 @@ export default class QmsCreateCapa extends LightningElement {
         const data = res.data || res;
         const capa = data.capa || {};
         const draft = capa.draft || {};
-        this.draft = { ...this.draft, ...draft };
+        const steps = data.agentRun && data.agentRun.steps ? data.agentRun.steps : [];
+        this.draft = {
+          ...this.draft,
+          ...draft,
+          agentSummary: steps.map((step) => `${step.agent}: ${step.event} -> ${step.status}`).join('\n')
+        };
         this.toast('Agent workflow completed', data.integrationStatus || 'completed', 'success');
         this.clearBusy();
       })

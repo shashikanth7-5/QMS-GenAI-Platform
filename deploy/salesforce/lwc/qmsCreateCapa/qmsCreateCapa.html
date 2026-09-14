@@ -32,14 +32,13 @@
           onchange={handleMethodChange}>
         </lightning-combobox>
         <lightning-button variant="brand" label="Run RCA Analysis" onclick={handleRunRca} disabled={isBusy}></lightning-button>
-        <lightning-button variant="neutral" label="Reassess RCA Score" onclick={handleReassessRca} disabled={isBusy}></lightning-button>
         <lightning-button variant="neutral" label="Choose Model" onclick={handleLoadModels} disabled={isBusy}></lightning-button>
         <lightning-button variant="brand" label="Generate CAPA Draft" onclick={handleGenerateDraft} disabled={isBusy}></lightning-button>
         <lightning-button variant="neutral" label="Run Agents" onclick={handleRunAgents} disabled={isBusy}></lightning-button>
       </section>
 
-      <section class="grid">
-        <div class="block">
+      <section class="rca-layout">
+        <div class="block rca-block">
           <div class="block-head">
             <h3>Root Cause Analysis</h3>
             <span class="pill">{rcaScore}</span>
@@ -50,9 +49,15 @@
             value={rootCauseText}
             onchange={handleDraftChange}>
           </lightning-textarea>
+          <div class="inline-actions">
+            <lightning-button variant="neutral" label="Reassess RCA Score" onclick={handleReassessRca} disabled={isBusy}></lightning-button>
+            <template if:true={hasRca}>
+              <span class="muted">Score updates automatically after RCA generation; choose a model to improve RCA before CAPA draft.</span>
+            </template>
+          </div>
         </div>
 
-        <div class="block">
+        <div class="block attachment-block">
           <div class="block-head">
             <h3>Attachments</h3>
             <span class="muted">{attachmentLabel}</span>
@@ -68,37 +73,59 @@
         </div>
       </section>
 
-      <template if:true={hasModels}>
-        <section class="block">
-          <div class="block-head">
-            <h3>AI Improvement Models</h3>
-            <span class="muted">Select one RCA proposal before generating/saving CAPA</span>
-          </div>
-          <div class="models">
-            <template for:each={rcaModels} for:item="model">
-              <button key={model.index} class="model-card" data-index={model.index} onclick={handleSelectModel}>
-                <strong>{model.label}</strong>
-                <span>{model.meta}</span>
-                <p>{model.summary}</p>
-              </button>
-            </template>
+      <template if:true={showModelModal}>
+        <section class="modal-backdrop">
+          <div class="modal">
+            <div class="modal-head">
+              <div>
+                <h3>AI Improvement Models</h3>
+                <p>Select Model A / B / C to improve and sync RCA into CAPA draft.</p>
+              </div>
+              <lightning-button-icon icon-name="utility:close" alternative-text="Close" onclick={closeModelModal}></lightning-button-icon>
+            </div>
+            <div class="models">
+              <template for:each={rcaModels} for:item="model">
+                <button key={model.index} class="model-card" data-index={model.index} onclick={handleSelectModel}>
+                  <strong>{model.label}</strong>
+                  <span>{model.meta}</span>
+                  <p>{model.summary}</p>
+                </button>
+              </template>
+            </div>
           </div>
         </section>
       </template>
 
       <section class="block">
         <div class="block-head">
-          <h3>CAPA Draft</h3>
+          <h3>CAPA Eligibility & Impact Assessment</h3>
           <span class="pill">{capaStatus}</span>
+        </div>
+        <div class="form-grid compact">
+          <lightning-input label="Impact scope *" data-field="impactScope" value={draft.impactScope} onchange={handleDraftChange}></lightning-input>
+          <lightning-combobox label="Risk level *" data-field="riskRating" value={draft.riskRating} options={riskOptions} onchange={handleDraftChange}></lightning-combobox>
+          <lightning-combobox label="Repeat event" data-field="repeatEvent" value={draft.repeatEvent} options={yesNoOptions} onchange={handleDraftChange}></lightning-combobox>
+          <lightning-combobox label="Supplier related" data-field="supplierRelated" value={draft.supplierRelated} options={yesNoOptions} onchange={handleDraftChange}></lightning-combobox>
+          <lightning-combobox label="Authority notification required" data-field="authorityNotificationRequired" value={draft.authorityNotificationRequired} options={yesNoOptions} onchange={handleDraftChange}></lightning-combobox>
+          <lightning-combobox label="Effectiveness check required" data-field="effectivenessCheckRequired" value={draft.effectivenessCheckRequired} options={yesNoOptions} onchange={handleDraftChange}></lightning-combobox>
+          <lightning-input label="Affected persons / functions" data-field="affectedFunctions" value={draft.affectedFunctions} onchange={handleDraftChange}></lightning-input>
+          <lightning-textarea label="Impact assessment detail *" data-field="impactAssessmentDetail" value={draft.impactAssessmentDetail} onchange={handleDraftChange}></lightning-textarea>
+        </div>
+      </section>
+
+      <section class="block">
+        <div class="block-head">
+          <h3>CAPA Draft</h3>
+          <span class="muted">AI generated and editable</span>
         </div>
         <div class="form-grid">
           <lightning-textarea label="Immediate / containment action" data-field="immediateAction" value={draft.immediateAction} onchange={handleDraftChange}></lightning-textarea>
           <lightning-textarea label="Corrective action" data-field="correctiveAction" value={draft.correctiveAction} onchange={handleDraftChange}></lightning-textarea>
           <lightning-textarea label="Preventive action" data-field="preventiveAction" value={draft.preventiveAction} onchange={handleDraftChange}></lightning-textarea>
           <lightning-textarea label="Effectiveness check" data-field="effectivenessCheck" value={draft.effectivenessCheck} onchange={handleDraftChange}></lightning-textarea>
-          <lightning-input label="Risk rating" data-field="riskRating" value={draft.riskRating} onchange={handleDraftChange}></lightning-input>
           <lightning-input label="CAPA owner" data-field="capaOwner" value={draft.capaOwner} onchange={handleDraftChange}></lightning-input>
           <lightning-input type="number" label="Estimated closure days" data-field="estimatedClosureDays" value={closureDays} onchange={handleDraftChange}></lightning-input>
+          <lightning-textarea label="Agent / AI generated detail" data-field="agentSummary" value={draft.agentSummary} onchange={handleDraftChange}></lightning-textarea>
         </div>
       </section>
 
@@ -135,6 +162,7 @@
                 <span>{capa.status}</span>
                 <span>{capa.risk}</span>
                 <span>{capa.owner}</span>
+                <span>{capa.llmProvider} {capa.llmModel}</span>
               </div>
             </template>
           </div>

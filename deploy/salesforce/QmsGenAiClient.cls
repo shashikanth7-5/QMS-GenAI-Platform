@@ -42,7 +42,7 @@ public with sharing class QmsGenAiClient {
   public static Map<String, Object> runRca(Id caseId, String method) {
     Case caseRec = loadCase(caseId);
     String selectedMethod = String.isBlank(method) ? 'fishbone' : method;
-    HttpRequest req = baseRequest('/api/v1/rca/analyze', 'POST', 'sf-rca-' + selectedMethod + '-' + caseRec.Id);
+    HttpRequest req = baseRequest('/api/v1/rca/analyze', 'POST', 'sf-rca-' + selectedMethod + '-' + caseRec.Id + '-' + DateTime.now().getTime());
     req.setBody(JSON.serialize(new Map<String, Object>{
       'record' => caseToQmsRecord(caseRec, true),
       'method' => selectedMethod
@@ -65,7 +65,7 @@ public with sharing class QmsGenAiClient {
   public static Map<String, Object> proposeRcaModels(Id caseId, String method) {
     Case caseRec = loadCase(caseId);
     String selectedMethod = String.isBlank(method) ? 'fishbone' : method;
-    HttpRequest req = baseRequest('/api/v1/rca/propose', 'POST', 'sf-rca-models-' + selectedMethod + '-' + caseRec.Id);
+    HttpRequest req = baseRequest('/api/v1/rca/propose', 'POST', 'sf-rca-models-' + selectedMethod + '-' + caseRec.Id + '-' + DateTime.now().getTime());
     req.setBody(JSON.serialize(new Map<String, Object>{
       'record' => caseToQmsRecord(caseRec, true),
       'method' => selectedMethod
@@ -108,6 +108,12 @@ public with sharing class QmsGenAiClient {
       'riskRating' => valueOr(draft, 'riskRating', String.valueOf(record.get('priority'))),
       'regulatoryRef' => draft.get('regulatoryRef'),
       'estimatedClosureDays' => draft.get('estimatedClosureDays'),
+      'impactScope' => value(draft, 'impactScope'),
+      'repeatEvent' => value(draft, 'repeatEvent'),
+      'supplierRelated' => value(draft, 'supplierRelated'),
+      'authorityNotificationRequired' => value(draft, 'authorityNotificationRequired'),
+      'affectedFunctions' => value(draft, 'affectedFunctions'),
+      'impactAssessmentDetail' => value(draft, 'impactAssessmentDetail'),
       'createdBy' => UserInfo.getName(),
       'createdByUsername' => UserInfo.getUserName(),
       'createdByRole' => 'salesforce'
@@ -137,6 +143,13 @@ public with sharing class QmsGenAiClient {
     shadow.Effectiveness_Check__c = value(draft, 'effectivenessCheck');
     shadow.LLM_Provider__c = truncate(value(draft, '_provider'), 80);
     shadow.LLM_Model__c = truncate(value(draft, '_model'), 160);
+    shadow.Impact_Scope__c = truncate(value(draft, 'impactScope'), 120);
+    shadow.Repeat_Event__c = truncate(value(draft, 'repeatEvent'), 20);
+    shadow.Supplier_Related__c = truncate(value(draft, 'supplierRelated'), 20);
+    shadow.Authority_Notification_Required__c = truncate(value(draft, 'authorityNotificationRequired'), 20);
+    shadow.Affected_Functions__c = truncate(value(draft, 'affectedFunctions'), 255);
+    shadow.Impact_Assessment_Detail__c = value(draft, 'impactAssessmentDetail');
+    shadow.Agent_Summary__c = value(draft, 'agentSummary');
     shadow.QMS_URL__c = qmsCapaUrl(qmsRecordId, qmsCapaId);
     insert shadow;
 
@@ -153,7 +166,8 @@ public with sharing class QmsGenAiClient {
     List<Map<String, Object>> rows = new List<Map<String, Object>>();
     for (QMS_CAPA__c row : [
       SELECT Id, Name, QMS_CAPA_ID__c, Status__c, Risk_Rating__c, CAPA_Owner__c,
-             Estimated_Closure_Days__c, QMS_URL__c, CreatedDate
+             Estimated_Closure_Days__c, QMS_URL__c, LLM_Provider__c, LLM_Model__c,
+             Impact_Scope__c, Agent_Summary__c, CreatedDate
       FROM QMS_CAPA__c
       WHERE Source_Case__c = :caseId
       ORDER BY CreatedDate DESC
@@ -168,6 +182,10 @@ public with sharing class QmsGenAiClient {
         'owner' => row.CAPA_Owner__c,
         'closureDays' => row.Estimated_Closure_Days__c,
         'qmsUrl' => row.QMS_URL__c,
+        'llmProvider' => row.LLM_Provider__c,
+        'llmModel' => row.LLM_Model__c,
+        'impactScope' => row.Impact_Scope__c,
+        'agentSummary' => row.Agent_Summary__c,
         'createdDate' => row.CreatedDate
       });
     }
