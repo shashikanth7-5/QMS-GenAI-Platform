@@ -26,10 +26,10 @@ AI_GROQ_MODEL=openai/gpt-oss-120b
 AI_FAILOVER_PROVIDERS=openai,gemini,anthropic
 LLM_MAX_RETRIES=1
 LLM_TIMEOUT_SECONDS=45
-QMS_DATA_DIR=/var/data
-DATABASE_URL=sqlite:////var/data/qms_data.db
-UPLOAD_STORAGE_DIR=/var/data/uploads
-CHROMA_PERSIST_DIR=/var/data/chroma_db
+QMS_DATA_DIR=/app/data
+DATABASE_URL=sqlite:////app/data/qms_data.db
+UPLOAD_STORAGE_DIR=/app/data/uploads
+CHROMA_PERSIST_DIR=/app/data/chroma_db
 RATE_LIMIT_ENABLED=false
 AGENT_SUPERVISOR_INTERVAL_SECONDS=3600
 ```

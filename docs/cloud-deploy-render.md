@@ -59,7 +59,7 @@ You'll see a page like:
 ```
 Blueprint qms-genai-platform
 ├── qms-web  (Web service, Docker)
-└── qms-data (persistent disk mounted at /var/data)
+└── qms-data (persistent disk mounted at /app/data)
 ```
 
 ### 2.3 Fill the required secret values
@@ -74,10 +74,10 @@ Click **Apply**.
 
 ### 2.4 Wait for the first build
 Render will:
-1. Attach the persistent disk at `/var/data`
+1. Attach the persistent disk at `/app/data`
 2. Clone your repo and run `docker build` (~4–6 min first time — subsequent builds cached)
-3. Initialize SQLite tables at `/var/data/qms_data.db`
-4. Persist ChromaDB under `/var/data/chroma_db`
+3. Initialize SQLite tables at `/app/data/qms_data.db`
+4. Persist ChromaDB under `/app/data/chroma_db`
 5. Health check on `/healthz` — service goes green when it passes
 
 Watch the **Logs** tab. Look for:
@@ -87,8 +87,8 @@ INFO [app] app.startup.complete
 [INFO] Listening at: http://0.0.0.0:5000
 ```
 For SQLite pilot deployments, confirm these env vars point to the mounted disk:
-`QMS_DATA_DIR=/var/data`, `DATABASE_URL=sqlite:////var/data/qms_data.db`,
-`CHROMA_PERSIST_DIR=/var/data/chroma_db`, and `UPLOAD_STORAGE_DIR=/var/data/uploads`.
+`QMS_DATA_DIR=/app/data`, `DATABASE_URL=sqlite:////app/data/qms_data.db`,
+`CHROMA_PERSIST_DIR=/app/data/chroma_db`, and `UPLOAD_STORAGE_DIR=/app/data/uploads`.
 
 ### 2.5 Note your public URL
 Once green, Render shows your public HTTPS URL at the top of the service page:

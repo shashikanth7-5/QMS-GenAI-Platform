@@ -29,7 +29,7 @@ services:
     dockerContext: .
     disk:
       name: qms-data
-      mountPath: /var/data
+      mountPath: /app/data
       sizeGB: 1
     envVars:
       # ── Required, provided by user during blueprint apply ───
@@ -66,13 +66,13 @@ services:
 
       # ── Persistent SQLite + ChromaDB on mounted Render disk ─
       - key: QMS_DATA_DIR
-        value: /var/data
+        value: /app/data
       - key: DATABASE_URL
-        value: sqlite:////var/data/qms_data.db
+        value: sqlite:////app/data/qms_data.db
       - key: CHROMA_PERSIST_DIR
-        value: /var/data/chroma_db
+        value: /app/data/chroma_db
       - key: UPLOAD_STORAGE_DIR
-        value: /var/data/uploads
+        value: /app/data/uploads
 
       # ── Rate limit + Celery broker use Redis if provided ────
       #     For a pilot, leave these unset -> in-memory fallback.
