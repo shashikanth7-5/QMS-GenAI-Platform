@@ -12,11 +12,21 @@ private class QmsGenAiClientTest {
       HttpResponse resp = new HttpResponse();
       resp.setStatusCode(200);
       resp.setHeader('Content-Type', 'application/json');
-      resp.setBody(
-        '{"success":true,"capa":{"rootCause":"seal fatigue",' +
-        '"correctiveAction":"replace seals","preventiveAction":"pm schedule",' +
-        '"riskRating":"High"},"recordId":"QR-2024-0001"}'
-      );
+      if (req.getEndpoint().contains('/capa/save')) {
+        resp.setBody('{"status":"success","data":{"capaId":"CAPA-TEST-001","status":"Under Review"}}');
+      } else if (req.getEndpoint().contains('/rca/assess')) {
+        resp.setBody('{"status":"success","data":{"overall_score":82,"verdict_msg":"Strong RCA"}}');
+      } else if (req.getEndpoint().contains('/rca/propose')) {
+        resp.setBody('{"status":"success","data":{"models":[{"name":"Model A","rootCause":"seal fatigue","_provider":"groq","_model":"test"}],"provider":"groq","model":"test"}}');
+      } else if (req.getEndpoint().contains('/rca/analyze')) {
+        resp.setBody('{"status":"success","data":{"rca":{"rootCause":"seal fatigue","_provider":"groq","_model":"test"},"method":"fishbone"}}');
+      } else {
+        resp.setBody(
+          '{"success":true,"data":{"capa":{"rootCause":"seal fatigue",' +
+          '"correctiveAction":"replace seals","preventiveAction":"pm schedule",' +
+          '"riskRating":"High"}},"recordId":"QR-2024-0001"}'
+        );
+      }
       return resp;
     }
   }
@@ -67,6 +77,40 @@ private class QmsGenAiClientTest {
 
     System.assertNotEquals(null, result);
     System.assertEquals('QR-2024-0001', String.valueOf(result.get('recordId')));
+  }
+
+  @isTest
+  static void testRcaAndModelMethodsSuccess() {
+    Case c = newCase();
+    Test.setMock(HttpCalloutMock.class, new QmsMock200());
+
+    Test.startTest();
+    Map<String, Object> rca = QmsGenAiClient.runRca(c.Id, 'fishbone');
+    Map<String, Object> models = QmsGenAiClient.proposeRcaModels(c.Id, 'fishbone');
+    Map<String, Object> score = QmsGenAiClient.reassessRca(c.Id, 'fishbone', '{"rootCause":"seal fatigue"}');
+    Test.stopTest();
+
+    System.assertNotEquals(null, rca);
+    System.assertNotEquals(null, models);
+    System.assertNotEquals(null, score);
+  }
+
+  @isTest
+  static void testGenerateFromRcaAndSaveShadowCapa() {
+    Case c = newCase();
+    Test.setMock(HttpCalloutMock.class, new QmsMock200());
+
+    Test.startTest();
+    Map<String, Object> generated = QmsGenAiClient.generateCapaFromRca(c.Id, '{"rootCause":"seal fatigue"}');
+    Map<String, Object> saved = QmsGenAiClient.saveCapaDraft(
+      c.Id,
+      '{"rootCause":"seal fatigue","immediateAction":"quarantine","correctiveAction":"replace seals","preventiveAction":"pm schedule","effectivenessCheck":"verify next lots","riskRating":"High","estimatedClosureDays":30,"_provider":"groq","_model":"test"}'
+    );
+    Test.stopTest();
+
+    System.assertNotEquals(null, generated);
+    System.assertEquals('CAPA-TEST-001', String.valueOf(saved.get('qmsCapaId')));
+    System.assertEquals(1, [SELECT COUNT() FROM QMS_CAPA__c WHERE Source_Case__c = :c.Id]);
   }
 
   @isTest
