@@ -106,14 +106,19 @@ public with sharing class QmsGenAiClient {
       'capaOwner' => firstValue(draft, new List<String>{'capaOwner', 'proposedOwner'}),
       'effectivenessCheck' => value(draft, 'effectivenessCheck'),
       'riskRating' => valueOr(draft, 'riskRating', String.valueOf(record.get('priority'))),
-      'regulatoryRef' => draft.get('regulatoryRef'),
-      'estimatedClosureDays' => draft.get('estimatedClosureDays'),
+      'regulatoryRef' => normalizedRegulatoryRefs(draft),
+      'estimatedClosureDays' => closureDaysValue(draft.get('estimatedClosureDays')),
+      'rcaQualityScore' => draft.get('rcaQualityScore'),
+      'llmProvider' => value(draft, '_provider'),
+      'llmModel' => value(draft, '_model'),
       'impactScope' => value(draft, 'impactScope'),
       'repeatEvent' => value(draft, 'repeatEvent'),
       'supplierRelated' => value(draft, 'supplierRelated'),
       'authorityNotificationRequired' => value(draft, 'authorityNotificationRequired'),
+      'effectivenessCheckRequired' => value(draft, 'effectivenessCheckRequired'),
       'affectedFunctions' => value(draft, 'affectedFunctions'),
       'impactAssessmentDetail' => value(draft, 'impactAssessmentDetail'),
+      'agentSummary' => value(draft, 'agentSummary'),
       'createdBy' => UserInfo.getName(),
       'createdByUsername' => UserInfo.getUserName(),
       'createdByRole' => 'salesforce'
@@ -135,7 +140,7 @@ public with sharing class QmsGenAiClient {
     shadow.Status__c = String.isBlank(value(data, 'status')) ? 'Under Review' : value(data, 'status');
     shadow.Risk_Rating__c = truncate(valueOr(draft, 'riskRating', String.valueOf(record.get('priority'))), 40);
     shadow.CAPA_Owner__c = truncate(firstValue(draft, new List<String>{'capaOwner', 'proposedOwner'}), 120);
-    shadow.Estimated_Closure_Days__c = decimalValue(draft.get('estimatedClosureDays'));
+    shadow.Estimated_Closure_Days__c = closureDaysValue(draft.get('estimatedClosureDays'));
     shadow.Root_Cause__c = value(draft, 'rootCause');
     shadow.Immediate_Action__c = value(draft, 'immediateAction');
     shadow.Corrective_Action__c = value(draft, 'correctiveAction');
@@ -372,6 +377,26 @@ public with sharing class QmsGenAiClient {
     } catch (Exception e) {
       return null;
     }
+  }
+
+  private static Integer closureDaysValue(Object raw) {
+    if (raw == null || String.isBlank(String.valueOf(raw))) return 30;
+    try {
+      Integer days = Integer.valueOf(String.valueOf(raw));
+      if (days < 1) return 30;
+      if (days > 365) return 365;
+      return days;
+    } catch (Exception e) {
+      return 30;
+    }
+  }
+
+  private static Object normalizedRegulatoryRefs(Map<String, Object> draft) {
+    Object raw = draft == null ? null : draft.get('regulatoryRef');
+    if (raw == null || String.isBlank(String.valueOf(raw))) {
+      return new List<String>{'21 CFR 820.100', 'ISO 13485:2016'};
+    }
+    return raw;
   }
 
   private static String truncate(String raw, Integer maxLen) {

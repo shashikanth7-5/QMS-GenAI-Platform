@@ -449,6 +449,16 @@ def api_save_capa():
     body = request.get_json(silent=True) or {}
     if not body.get("sourceRecordId"):
         return _err("sourceRecordId is required", 400)
+    try:
+        closure_days = int(body.get("estimatedClosureDays") or 30)
+    except (TypeError, ValueError):
+        return _err("estimatedClosureDays must be a valid integer", 400, "invalid_estimated_closure")
+    if closure_days < 1 or closure_days > 365:
+        return _err("estimatedClosureDays must be between 1 and 365", 400, "invalid_estimated_closure")
+
+    regulatory_ref = body.get("regulatoryRef") or []
+    if isinstance(regulatory_ref, str):
+        regulatory_ref = [ref.strip() for ref in regulatory_ref.split(",") if ref.strip()]
 
     capa_id = f"CAPA-{datetime.now().year}-{uuid.uuid4().hex[:12].upper()}"
     capa_record = {
@@ -467,9 +477,21 @@ def api_save_capa():
         "capaOwner":          body.get("capaOwner", ""),
         "effectivenessCheck": body.get("effectivenessCheck", ""),
         "riskRating":         body.get("riskRating", "Medium"),
-        "regulatoryRef":      body.get("regulatoryRef", []),
-        "estimatedClosureDays": body.get("estimatedClosureDays", 30),
+        "regulatoryRef":      regulatory_ref,
+        "estimatedClosureDays": closure_days,
         "notes":              body.get("notes", ""),
+        "rcaQualityScore":     body.get("rcaQualityScore"),
+        "capaMetadata": {
+            "impactScope": body.get("impactScope", ""),
+            "repeatEvent": body.get("repeatEvent", ""),
+            "supplierRelated": body.get("supplierRelated", ""),
+            "authorityNotificationRequired": body.get("authorityNotificationRequired", ""),
+            "affectedFunctions": body.get("affectedFunctions", ""),
+            "impactAssessmentDetail": body.get("impactAssessmentDetail", ""),
+            "agentSummary": body.get("agentSummary", ""),
+            "llmProvider": body.get("llmProvider", ""),
+            "llmModel": body.get("llmModel", ""),
+        },
         "createdBy":          body.get("createdBy", "api"),
         "createdByUsername":  body.get("createdByUsername", "api"),
         "createdByRole":      body.get("createdByRole", "api"),
@@ -477,8 +499,16 @@ def api_save_capa():
         "updatedAt":          datetime.utcnow().isoformat(),
         "_source":            "api_v1",
     }
-    save_capa(capa_record)
-    return _ok({"capaId": capa_id, "status": "Under Review"}, 201)
+    try:
+        saved = save_capa(capa_record)
+        return _ok({
+            "capaId": saved.get("capaId", capa_id),
+            "status": saved.get("status", "Under Review"),
+            "sourceRecordId": saved.get("sourceRecordId", body.get("sourceRecordId")),
+        }, 201)
+    except Exception as exc:
+        log.exception("api_v1.capa.save_failed")
+        return _err(f"CAPA save failed: {exc}", 500, "save_error")
 
 
 @api_v1_bp.route("/capas", methods=["GET"])
