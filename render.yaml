@@ -106,10 +106,12 @@ services:
         value: "false"
 
       # ── Gunicorn tuning for free tier (0.5 CPU / 512 MB) ────
+      # One worker is intentional: every extra worker duplicates the Python
+      # process memory. Keep this small for demo stability.
       - key: WEB_CONCURRENCY
-        value: "2"
+        value: "1"
       - key: WEB_THREADS
-        value: "4"
+        value: "2"
       - key: WEB_TIMEOUT
         value: "120"
 

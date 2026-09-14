@@ -17,21 +17,6 @@ log = get_logger(__name__)
 
 _SSL_VERIFY = os.getenv("SSL_VERIFY", "true").lower() == "true"
 
-try:
-    import pdfplumber; _HAS_PDF = True
-except ImportError:
-    _HAS_PDF = False
-
-try:
-    import openpyxl; _HAS_EXCEL = True
-except ImportError:
-    _HAS_EXCEL = False
-
-try:
-    import docx as _docx; _HAS_DOCX = True
-except ImportError:
-    _HAS_DOCX = False
-
 ALLOWED_EXTENSIONS = {
     "pdf","xlsx","xls","csv",
     "png","jpg","jpeg","bmp","tiff","tif",
@@ -87,7 +72,9 @@ def extract_text(file_bytes: bytes, filename: str):
     ext = filename.rsplit(".",1)[-1].lower() if "." in filename else ""
 
     if ext == "pdf":
-        if not _HAS_PDF:
+        try:
+            import pdfplumber
+        except ImportError:
             raise RuntimeError("pdfplumber not installed.")
         parts = []
         with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
@@ -97,7 +84,9 @@ def extract_text(file_bytes: bytes, filename: str):
         return "\n".join(parts) or "(No text found in PDF)"
 
     if ext in ("xlsx","xls"):
-        if not _HAS_EXCEL:
+        try:
+            import openpyxl
+        except ImportError:
             raise RuntimeError("openpyxl not installed.")
         wb = openpyxl.load_workbook(io.BytesIO(file_bytes), data_only=True)
         rows = []
@@ -119,7 +108,9 @@ def extract_text(file_bytes: bytes, filename: str):
         return {"type":"image","b64":b64,"mime":_MIME_MAP.get(ext,"image/jpeg")}
 
     if ext in ("docx","doc"):
-        if not _HAS_DOCX:
+        try:
+            import docx as _docx
+        except ImportError:
             raise RuntimeError("python-docx not installed.")
         doc = _docx.Document(io.BytesIO(file_bytes))
         return "\n".join(p.text for p in doc.paragraphs if p.text.strip())

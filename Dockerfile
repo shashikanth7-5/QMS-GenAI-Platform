@@ -30,7 +30,7 @@ EXPOSE 5000
 # Startup: retry `alembic upgrade head` a few times so Postgres has a chance
 # to become healthy on cold start (docker-compose depends_on has the same
 # guard, but K8s / ECS may not). Then exec gunicorn.
-CMD ["sh", "-c", "case \"$DATABASE_URL\" in sqlite*) python -c \"from database import init_db; init_db()\" ;; *) for i in 1 2 3 4 5; do alembic upgrade head && break || (echo \"alembic retry $i\"; sleep 3); done ;; esac && python -m scripts.bootstrap_pilot_users && exec gunicorn --bind 0.0.0.0:5000 --workers ${WEB_CONCURRENCY:-2} --threads ${WEB_THREADS:-4} --timeout ${WEB_TIMEOUT:-120} --graceful-timeout 30 --access-logfile - --error-logfile - app:app"]
+CMD ["sh", "-c", "case \"$DATABASE_URL\" in sqlite*) python -c \"from database import init_db; init_db()\" ;; *) for i in 1 2 3 4 5; do alembic upgrade head && break || (echo \"alembic retry $i\"; sleep 3); done ;; esac && python -m scripts.bootstrap_pilot_users && exec gunicorn --bind 0.0.0.0:5000 --workers ${WEB_CONCURRENCY:-1} --threads ${WEB_THREADS:-2} --timeout ${WEB_TIMEOUT:-120} --graceful-timeout 30 --access-logfile - --error-logfile - app:app"]
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
     CMD curl --fail --silent --show-error http://127.0.0.1:5000/healthz || exit 1
