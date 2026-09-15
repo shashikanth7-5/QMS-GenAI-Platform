@@ -148,6 +148,35 @@ export default class QmsCreateCapa extends LightningElement {
     this.draft = { ...this.draft, [field]: event.target.value };
   }
 
+  requiredDraftMissingFields() {
+    const checks = [
+      ['impactScope', 'Impact Scope'],
+      ['riskRating', 'Risk Level'],
+      ['impactAssessmentDetail', 'Impact Assessment Detail'],
+      ['rootCause', 'Root Cause Statement'],
+      ['immediateAction', 'Immediate / Containment Action'],
+      ['correctiveAction', 'Corrective Action'],
+      ['preventiveAction', 'Preventive Action'],
+      ['capaOwner', 'CAPA Owner'],
+      ['effectivenessCheck', 'Effectiveness Check']
+    ];
+    return checks
+      .filter(([field]) => !String(this.draft[field] || '').trim())
+      .map(([, label]) => label);
+  }
+
+  validateDraftForSave() {
+    const missing = this.requiredDraftMissingFields();
+    if (!missing.length) {
+      return true;
+    }
+    const message = `Complete these required CAPA fields before saving:\n\n${missing.join('\n')}`;
+    this.error = message;
+    window.alert(message);
+    this.toast('CAPA draft incomplete', `${missing.length} required field(s) need review.`, 'warning');
+    return false;
+  }
+
   buildRcaPayload() {
     return {
       ...this.rca,
@@ -245,6 +274,13 @@ export default class QmsCreateCapa extends LightningElement {
   }
 
   handleGenerateDraft() {
+    if (!this.rootCauseText) {
+      const message = 'Run RCA Analysis first so the CAPA draft is based on this Salesforce Case and its attachments.';
+      this.error = message;
+      window.alert(message);
+      this.toast('RCA required', message, 'warning');
+      return;
+    }
     this.setBusy('Generating CAPA draft...');
     generateCapaFromRca({ caseId: this.recordId, rcaJson: JSON.stringify(this.buildRcaPayload()) })
       .then((res) => {
@@ -273,6 +309,18 @@ export default class QmsCreateCapa extends LightningElement {
     runAgentPipeline({ caseId: this.recordId, saveDraft: false })
       .then((res) => {
         const data = res.data || res;
+        if (data.integrationStatus === 'skipped') {
+          const reason =
+            data.reason ||
+            (data.ui && data.ui.showMessage) ||
+            'This record is not eligible for CAPA creation based on the QMS decision rules.';
+          const message = `Not eligible to create CAPA:\n\n${reason}`;
+          this.error = message;
+          window.alert(message);
+          this.toast('CAPA not eligible', reason, 'warning');
+          this.clearBusy();
+          return;
+        }
         const capa = data.capa || {};
         const draft = capa.draft || {};
         const steps = data.agentRun && data.agentRun.steps ? data.agentRun.steps : [];
@@ -288,6 +336,9 @@ export default class QmsCreateCapa extends LightningElement {
   }
 
   handleSaveDraft() {
+    if (!this.validateDraftForSave()) {
+      return;
+    }
     this.setBusy('Saving CAPA to QMS and Salesforce...');
     saveCapaDraft({ caseId: this.recordId, draftJson: JSON.stringify(this.draft) })
       .then((res) => {
