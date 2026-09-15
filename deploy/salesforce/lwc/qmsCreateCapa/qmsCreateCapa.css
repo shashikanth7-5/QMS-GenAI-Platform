@@ -93,6 +93,10 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.full-width {
+  grid-column: 1 / -1;
+}
+
 .block,
 .metrics > div {
   background: #fff;

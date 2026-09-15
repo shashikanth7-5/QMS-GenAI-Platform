@@ -118,6 +118,16 @@ export default class QmsCreateCapa extends LightningElement {
     ];
   }
 
+  get impactOptions() {
+    return [
+      { label: 'Product impact', value: 'Product impact' },
+      { label: 'Process impact', value: 'Process impact' },
+      { label: 'System impact', value: 'System impact' },
+      { label: 'Patient / user impact', value: 'Patient / user impact' },
+      { label: 'Regulatory impact', value: 'Regulatory impact' }
+    ];
+  }
+
   get riskOptions() {
     return [
       { label: 'Low', value: 'Low' },
@@ -134,6 +144,7 @@ export default class QmsCreateCapa extends LightningElement {
         this.record = res.record || {};
         this.relatedCapas = res.relatedCapas || [];
         this.apiHost = (res.apiHost || '').replace(/\/$/, '');
+        this.draft = this.buildDefaultDraft();
         this.clearBusy();
       })
       .catch((err) => this.handleError('Unable to load QMS context', err));
@@ -148,6 +159,60 @@ export default class QmsCreateCapa extends LightningElement {
     this.draft = { ...this.draft, [field]: event.target.value };
   }
 
+  buildDefaultDraft() {
+    return {
+      sourceRecordId: this.record.id || this.record.caseNumber || '',
+      sourceRecordType: this.record.type || 'complaint',
+      sourcePriority: this.record.priority || 'Medium',
+      sourceSite: this.record.site || '',
+      sourceTitle: this.record.title || '',
+      sector: this.record.sector || '',
+      impactScope: 'Product impact',
+      riskRating: this.record.priority === 'High' ? 'High' : this.record.priority === 'Low' ? 'Low' : 'Medium',
+      repeatEvent: 'No',
+      supplierRelated: 'No',
+      authorityNotificationRequired: 'No',
+      effectivenessCheckRequired: 'Yes',
+      affectedFunctions: 'QA, manufacturing, supplier contact, patient/user if applicable',
+      impactAssessmentDetail: 'CAPA eligibility will be confirmed by QMS agents using this Salesforce Case and attached evidence.',
+      regulatoryRef: '21 CFR 820.100; ISO 13485:2016',
+      supportingDocuments: this.attachmentLabel,
+      additionalNotes: ''
+    };
+  }
+
+  mergeGeneratedDraft(capa) {
+    return {
+      ...this.draft,
+      ...capa,
+      sourceRecordId: capa.sourceRecordId || this.draft.sourceRecordId || this.record.id || this.record.caseNumber,
+      sourceRecordType: capa.sourceRecordType || this.draft.sourceRecordType || this.record.type || 'complaint',
+      sourcePriority: capa.sourcePriority || this.draft.sourcePriority || this.record.priority || 'Medium',
+      sourceSite: capa.sourceSite || capa.site || this.draft.sourceSite || this.record.site || '',
+      sourceTitle: capa.sourceTitle || capa.title || this.draft.sourceTitle || this.record.title || '',
+      sector: capa.sector || this.draft.sector || this.record.sector || '',
+      rootCause: capa.rootCause || this.rootCauseText,
+      capaOwner: capa.capaOwner || capa.proposedOwner || this.draft.capaOwner || 'Quality Assurance Manager',
+      riskRating: capa.riskRating || this.draft.riskRating || 'Medium',
+      impactScope: capa.impactScope || this.draft.impactScope || 'Product impact',
+      repeatEvent: capa.repeatEvent || this.draft.repeatEvent || 'No',
+      supplierRelated: capa.supplierRelated || this.draft.supplierRelated || 'No',
+      authorityNotificationRequired: capa.authorityNotificationRequired || this.draft.authorityNotificationRequired || 'No',
+      effectivenessCheckRequired: capa.effectivenessCheckRequired || this.draft.effectivenessCheckRequired || 'Yes',
+      affectedFunctions:
+        capa.affectedFunctions ||
+        this.draft.affectedFunctions ||
+        'QA, manufacturing, supplier contact, patient/user if applicable',
+      impactAssessmentDetail:
+        capa.impactAssessmentDetail ||
+        this.draft.impactAssessmentDetail ||
+        'CAPA eligible: risk/impact conditions support draft creation and quality review.',
+      regulatoryRef: capa.regulatoryRef || this.draft.regulatoryRef || '21 CFR 820.100; ISO 13485:2016',
+      supportingDocuments: capa.supportingDocuments || this.draft.supportingDocuments || this.attachmentLabel,
+      additionalNotes: capa.additionalNotes || this.draft.additionalNotes || ''
+    };
+  }
+
   requiredDraftMissingFields() {
     const checks = [
       ['impactScope', 'Impact Scope'],
@@ -158,7 +223,8 @@ export default class QmsCreateCapa extends LightningElement {
       ['correctiveAction', 'Corrective Action'],
       ['preventiveAction', 'Preventive Action'],
       ['capaOwner', 'CAPA Owner'],
-      ['effectivenessCheck', 'Effectiveness Check']
+      ['effectivenessCheck', 'Effectiveness Check'],
+      ['regulatoryRef', 'Regulatory References']
     ];
     return checks
       .filter(([field]) => !String(this.draft[field] || '').trim())
@@ -286,18 +352,7 @@ export default class QmsCreateCapa extends LightningElement {
       .then((res) => {
         const data = res.data || res;
         const capa = data.capa || {};
-        this.draft = {
-          ...capa,
-          rootCause: capa.rootCause || this.rootCauseText,
-          capaOwner: capa.capaOwner || capa.proposedOwner || 'Quality Assurance Manager',
-          impactScope: capa.impactScope || 'Product impact',
-          repeatEvent: capa.repeatEvent || 'No',
-          supplierRelated: capa.supplierRelated || 'No',
-          authorityNotificationRequired: capa.authorityNotificationRequired || 'No',
-          effectivenessCheckRequired: capa.effectivenessCheckRequired || 'Yes',
-          affectedFunctions: capa.affectedFunctions || 'QA, manufacturing, supplier contact, patient/user if applicable',
-          impactAssessmentDetail: capa.impactAssessmentDetail || 'CAPA eligible: risk/impact conditions support draft creation and quality review.'
-        };
+        this.draft = this.mergeGeneratedDraft(capa);
         this.toast('CAPA draft generated', this.modelLabel, 'success');
         this.clearBusy();
       })
@@ -324,11 +379,10 @@ export default class QmsCreateCapa extends LightningElement {
         const capa = data.capa || {};
         const draft = capa.draft || {};
         const steps = data.agentRun && data.agentRun.steps ? data.agentRun.steps : [];
-        this.draft = {
-          ...this.draft,
+        this.draft = this.mergeGeneratedDraft({
           ...draft,
           agentSummary: steps.map((step) => `${step.agent}: ${step.event} -> ${step.status}`).join('\n')
-        };
+        });
         this.toast('Agent workflow completed', data.integrationStatus || 'completed', 'success');
         this.clearBusy();
       })
