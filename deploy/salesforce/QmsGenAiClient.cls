@@ -187,7 +187,12 @@ public with sharing class QmsGenAiClient {
       SELECT Id, Name, QMS_CAPA_ID__c, Status__c, Risk_Rating__c, CAPA_Owner__c,
              Estimated_Closure_Days__c, QMS_URL__c, LLM_Provider__c, LLM_Model__c,
              Impact_Scope__c, Agent_Summary__c, Root_Cause__c, Immediate_Action__c,
-             Corrective_Action__c, Preventive_Action__c, Target_Closure_Date__c, CreatedDate
+             Corrective_Action__c, Preventive_Action__c, Target_Closure_Date__c, CreatedDate,
+             Source_Record_ID__c, Source_Record_Type__c, Source_Record_Title__c,
+             Source_Priority__c, Sector__c, Site__c, Repeat_Event__c, Supplier_Related__c,
+             Authority_Notification_Required__c, Effectiveness_Check_Required__c,
+             Affected_Functions__c, Impact_Assessment_Detail__c, Effectiveness_Check__c,
+             Regulatory_References__c, Supporting_Documents__c, Additional_Notes__c
       FROM QMS_CAPA__c
       WHERE Source_Case__c = :caseId
       ORDER BY CreatedDate DESC
@@ -210,11 +215,59 @@ public with sharing class QmsGenAiClient {
         'immediateAction' => row.Immediate_Action__c,
         'correctiveAction' => row.Corrective_Action__c,
         'preventiveAction' => row.Preventive_Action__c,
+        'effectivenessCheck' => row.Effectiveness_Check__c,
+        'regulatoryReferences' => row.Regulatory_References__c,
+        'supportingDocuments' => row.Supporting_Documents__c,
+        'additionalNotes' => row.Additional_Notes__c,
+        'sourceRecordId' => row.Source_Record_ID__c,
+        'sourceRecordType' => row.Source_Record_Type__c,
+        'sourceRecordTitle' => row.Source_Record_Title__c,
+        'sourcePriority' => row.Source_Priority__c,
+        'sector' => row.Sector__c,
+        'site' => row.Site__c,
+        'repeatEvent' => row.Repeat_Event__c,
+        'supplierRelated' => row.Supplier_Related__c,
+        'authorityNotificationRequired' => row.Authority_Notification_Required__c,
+        'effectivenessCheckRequired' => row.Effectiveness_Check_Required__c,
+        'affectedFunctions' => row.Affected_Functions__c,
+        'impactAssessmentDetail' => row.Impact_Assessment_Detail__c,
         'targetClosureDate' => row.Target_Closure_Date__c,
         'createdDate' => row.CreatedDate
       });
     }
     return rows;
+  }
+
+  @AuraEnabled(cacheable=false)
+  public static Map<String, Object> updateCapaStatus(Id caseId, Id salesforceCapaId, String status, String signerUsername, String signerPassword, String meaning, String comment) {
+    QMS_CAPA__c row = [
+      SELECT Id, QMS_CAPA_ID__c
+      FROM QMS_CAPA__c
+      WHERE Id = :salesforceCapaId AND Source_Case__c = :caseId
+      LIMIT 1
+    ];
+
+    HttpRequest req = baseRequest('/api/v1/capas/' + EncodingUtil.urlEncode(row.QMS_CAPA_ID__c, 'UTF-8') + '/status', 'PATCH', 'sf-capa-status-' + row.Id + '-' + DateTime.now().getTime());
+    req.setBody(JSON.serialize(new Map<String, Object>{
+      'status' => status,
+      'comment' => comment,
+      'eSignature' => new Map<String, Object>{
+        'signedBy' => signerUsername,
+        'password' => signerPassword,
+        'meaning' => meaning
+      }
+    }));
+    Map<String, Object> apiResult = sendJson(req, 'QMS /api/v1/capas/status failed');
+    Map<String, Object> data = resultData(apiResult);
+    String newStatus = valueOr(data, 'status', status == 'Rejected' ? 'Pending Correction' : status);
+    row.Status__c = newStatus;
+    update row;
+
+    return new Map<String, Object>{
+      'qms' => apiResult,
+      'status' => newStatus,
+      'relatedCapas' => listRelatedCapas(caseId)
+    };
   }
 
   @AuraEnabled(cacheable=true)

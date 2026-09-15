@@ -14,6 +14,8 @@ private class QmsGenAiClientTest {
       resp.setHeader('Content-Type', 'application/json');
       if (req.getEndpoint().contains('/capa/save')) {
         resp.setBody('{"status":"success","data":{"capaId":"CAPA-TEST-001","status":"Under Review"}}');
+      } else if (req.getEndpoint().contains('/status')) {
+        resp.setBody('{"status":"success","data":{"capaId":"CAPA-TEST-001","status":"Approved","requestedStatus":"Approved"}}');
       } else if (req.getEndpoint().contains('/rca/assess')) {
         resp.setBody('{"status":"success","data":{"overall_score":82,"verdict_msg":"Strong RCA"}}');
       } else if (req.getEndpoint().contains('/rca/propose')) {
@@ -111,6 +113,34 @@ private class QmsGenAiClientTest {
     System.assertNotEquals(null, generated);
     System.assertEquals('CAPA-TEST-001', String.valueOf(saved.get('qmsCapaId')));
     System.assertEquals(1, [SELECT COUNT() FROM QMS_CAPA__c WHERE Source_Case__c = :c.Id]);
+  }
+
+  @isTest
+  static void testUpdateCapaStatusFromCasePanel() {
+    Case c = newCase();
+    QMS_CAPA__c capa = new QMS_CAPA__c(
+      Source_Case__c = c.Id,
+      QMS_CAPA_ID__c = 'CAPA-TEST-001',
+      Status__c = 'Under Review',
+      Root_Cause__c = 'seal fatigue'
+    );
+    insert capa;
+    Test.setMock(HttpCalloutMock.class, new QmsMock200());
+
+    Test.startTest();
+    Map<String, Object> result = QmsGenAiClient.updateCapaStatus(
+      c.Id,
+      capa.Id,
+      'Approved',
+      'admin',
+      'password',
+      'I approve this CAPA after quality review.',
+      'Looks complete'
+    );
+    Test.stopTest();
+
+    System.assertEquals('Approved', String.valueOf(result.get('status')));
+    System.assertEquals('Approved', [SELECT Status__c FROM QMS_CAPA__c WHERE Id = :capa.Id].Status__c);
   }
 
   @isTest
