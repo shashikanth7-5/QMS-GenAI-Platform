@@ -172,16 +172,35 @@
         <template if:true={hasRelatedCapas}>
           <div class="related-list">
             <template for:each={relatedCapas} for:item="capa">
-              <div key={capa.id} class="related-row">
-                <div>
-                  <a data-id={capa.id} onclick={openSalesforceCapa}>{capa.name}</a>
-                  <span>{capa.qmsCapaId}</span>
+              <article key={capa.id} class="capa-summary">
+                <div class="capa-summary-head">
+                  <div>
+                    <h4>{capa.name}</h4>
+                    <p>{capa.qmsCapaId} | {capa.status} | {capa.risk} | {capa.owner}</p>
+                  </div>
+                  <div class="capa-actions">
+                    <lightning-button variant="success" label="Approve with eSign" data-id={capa.id} data-status="Approved" onclick={handleDecisionClick} disabled={isBusy}></lightning-button>
+                    <lightning-button variant="destructive" label="Reject" data-id={capa.id} data-status="Rejected" onclick={handleDecisionClick} disabled={isBusy}></lightning-button>
+                  </div>
                 </div>
-                <span>{capa.status}</span>
-                <span>{capa.risk}</span>
-                <span>{capa.owner}</span>
-                <span>{capa.llmProvider} {capa.llmModel}</span>
-              </div>
+                <div class="detail-grid">
+                  <div><span>Source</span><strong>{capa.sourceRecordTitle}</strong><p>{capa.sourceRecordId} | {capa.sourceRecordType} | {capa.sector}</p></div>
+                  <div><span>Impact / Risk</span><strong>{capa.impactScope}</strong><p>{capa.risk}; repeat: {capa.repeatEvent}; supplier: {capa.supplierRelated}</p></div>
+                  <div><span>Authority / Effectiveness Required</span><strong>{capa.authorityNotificationRequired}</strong><p>Effectiveness required: {capa.effectivenessCheckRequired}</p></div>
+                  <div><span>Timeline</span><strong>{capa.targetClosureDate}</strong><p>{capa.closureDays} day(s)</p></div>
+                </div>
+                <div class="field-stack">
+                  <section><span>Root Cause</span><p>{capa.rootCause}</p></section>
+                  <section><span>Immediate / Containment Action</span><p>{capa.immediateAction}</p></section>
+                  <section><span>Corrective Action</span><p>{capa.correctiveAction}</p></section>
+                  <section><span>Preventive Action</span><p>{capa.preventiveAction}</p></section>
+                  <section><span>Effectiveness Check</span><p>{capa.effectivenessCheck}</p></section>
+                  <section><span>Regulatory References</span><p>{capa.regulatoryReferences}</p></section>
+                  <section><span>Impact Assessment Detail</span><p>{capa.impactAssessmentDetail}</p></section>
+                  <section><span>Supporting Documents</span><p>{capa.supportingDocuments}</p></section>
+                  <section><span>AI / Agent Details</span><p>{capa.llmProvider} {capa.llmModel}</p><p>{capa.agentSummary}</p></section>
+                </div>
+              </article>
             </template>
           </div>
         </template>
@@ -189,6 +208,30 @@
           <p class="empty">No CAPAs linked yet. Generate and save a draft from this panel.</p>
         </template>
       </section>
+
+      <template if:true={showESignModal}>
+        <section class="modal-backdrop">
+          <div class="modal esign-modal">
+            <div class="modal-head">
+              <div>
+                <h3>Electronic Signature</h3>
+                <p>{pendingDecision.status} {pendingDecision.qmsCapaId}. Password is verified by QMS for Part 11 style review.</p>
+              </div>
+              <lightning-button-icon icon-name="utility:close" alternative-text="Close" onclick={closeESignModal}></lightning-button-icon>
+            </div>
+            <div class="form-grid compact">
+              <lightning-input label="Reviewer username" data-field="signerUsername" value={eSign.signerUsername} onchange={handleESignChange}></lightning-input>
+              <lightning-input type="password" label="Reviewer password" data-field="signerPassword" value={eSign.signerPassword} onchange={handleESignChange}></lightning-input>
+              <lightning-textarea class="full-width" label="Signature meaning" data-field="meaning" value={eSign.meaning} onchange={handleESignChange}></lightning-textarea>
+              <lightning-textarea class="full-width" label="Review comment" data-field="comment" value={eSign.comment} onchange={handleESignChange}></lightning-textarea>
+            </div>
+            <div class="actions modal-actions">
+              <lightning-button variant="neutral" label="Cancel" onclick={closeESignModal}></lightning-button>
+              <lightning-button variant="brand" label="Submit eSignature" onclick={submitESignDecision} disabled={isBusy}></lightning-button>
+            </div>
+          </div>
+        </section>
+      </template>
     </div>
   </lightning-card>
 </template>

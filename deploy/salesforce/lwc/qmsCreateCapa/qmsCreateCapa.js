@@ -8,6 +8,7 @@ import proposeRcaModels from '@salesforce/apex/QmsGenAiClient.proposeRcaModels';
 import runAgentPipeline from '@salesforce/apex/QmsGenAiClient.runAgentPipeline';
 import saveCapaDraft from '@salesforce/apex/QmsGenAiClient.saveCapaDraft';
 import listRelatedCapas from '@salesforce/apex/QmsGenAiClient.listRelatedCapas';
+import updateCapaStatus from '@salesforce/apex/QmsGenAiClient.updateCapaStatus';
 
 export default class QmsCreateCapa extends LightningElement {
   @api recordId;
@@ -25,6 +26,9 @@ export default class QmsCreateCapa extends LightningElement {
   @track lastSave;
   @track approvalRequested = false;
   @track showModelModal = false;
+  @track showESignModal = false;
+  @track pendingDecision = {};
+  @track eSign = {};
 
   connectedCallback() {
     this.loadContext();
@@ -406,6 +410,60 @@ export default class QmsCreateCapa extends LightningElement {
         this.clearBusy();
       })
       .catch((err) => this.handleError('CAPA save failed', err));
+  }
+
+  handleDecisionClick(event) {
+    const id = event.currentTarget.dataset.id;
+    const status = event.currentTarget.dataset.status;
+    const capa = this.relatedCapas.find((row) => row.id === id);
+    this.pendingDecision = {
+      id,
+      status,
+      name: capa ? capa.name : '',
+      qmsCapaId: capa ? capa.qmsCapaId : ''
+    };
+    this.eSign = {
+      signerUsername: '',
+      signerPassword: '',
+      meaning: status === 'Approved' ? 'I approve this CAPA after quality review.' : 'I reject this CAPA and request correction.',
+      comment: ''
+    };
+    this.showESignModal = true;
+  }
+
+  handleESignChange(event) {
+    const field = event.target.dataset.field;
+    this.eSign = { ...this.eSign, [field]: event.target.value };
+  }
+
+  closeESignModal() {
+    this.showESignModal = false;
+    this.pendingDecision = {};
+    this.eSign = {};
+  }
+
+  submitESignDecision() {
+    if (!this.eSign.signerUsername || !this.eSign.signerPassword || !this.eSign.meaning) {
+      window.alert('Reviewer username, password, and meaning are required for electronic signature.');
+      return;
+    }
+    this.setBusy(`${this.pendingDecision.status} CAPA with e-signature...`);
+    updateCapaStatus({
+      caseId: this.recordId,
+      salesforceCapaId: this.pendingDecision.id,
+      status: this.pendingDecision.status,
+      signerUsername: this.eSign.signerUsername,
+      signerPassword: this.eSign.signerPassword,
+      meaning: this.eSign.meaning,
+      comment: this.eSign.comment
+    })
+      .then((res) => {
+        this.relatedCapas = res.relatedCapas || [];
+        this.toast('CAPA status updated', `${this.pendingDecision.qmsCapaId || this.pendingDecision.name} -> ${res.status}`, 'success');
+        this.closeESignModal();
+        this.clearBusy();
+      })
+      .catch((err) => this.handleError('CAPA e-signature failed', err));
   }
 
   handleRefreshRelated() {
