@@ -98,18 +98,32 @@
 
       <section class="block">
         <div class="block-head">
+          <h3>Source Record</h3>
+          <span class="muted">Loaded from Salesforce Case</span>
+        </div>
+        <div class="form-grid compact">
+          <lightning-input label="Record ID" data-field="sourceRecordId" value={draft.sourceRecordId} onchange={handleDraftChange}></lightning-input>
+          <lightning-input label="Type" data-field="sourceRecordType" value={draft.sourceRecordType} onchange={handleDraftChange}></lightning-input>
+          <lightning-input label="Priority" data-field="sourcePriority" value={draft.sourcePriority} onchange={handleDraftChange}></lightning-input>
+          <lightning-input label="Site" data-field="sourceSite" value={draft.sourceSite} onchange={handleDraftChange}></lightning-input>
+          <lightning-input class="full-width" label="Issue title" data-field="sourceTitle" value={draft.sourceTitle} onchange={handleDraftChange}></lightning-input>
+        </div>
+      </section>
+
+      <section class="block">
+        <div class="block-head">
           <h3>CAPA Eligibility & Impact Assessment</h3>
           <span class="pill">{capaStatus}</span>
         </div>
         <div class="form-grid compact">
-          <lightning-input label="Impact scope *" data-field="impactScope" value={draft.impactScope} onchange={handleDraftChange}></lightning-input>
+          <lightning-combobox label="Impact scope *" data-field="impactScope" value={draft.impactScope} options={impactOptions} onchange={handleDraftChange}></lightning-combobox>
           <lightning-combobox label="Risk level *" data-field="riskRating" value={draft.riskRating} options={riskOptions} onchange={handleDraftChange}></lightning-combobox>
           <lightning-combobox label="Repeat event" data-field="repeatEvent" value={draft.repeatEvent} options={yesNoOptions} onchange={handleDraftChange}></lightning-combobox>
           <lightning-combobox label="Supplier related" data-field="supplierRelated" value={draft.supplierRelated} options={yesNoOptions} onchange={handleDraftChange}></lightning-combobox>
           <lightning-combobox label="Authority notification required" data-field="authorityNotificationRequired" value={draft.authorityNotificationRequired} options={yesNoOptions} onchange={handleDraftChange}></lightning-combobox>
           <lightning-combobox label="Effectiveness check required" data-field="effectivenessCheckRequired" value={draft.effectivenessCheckRequired} options={yesNoOptions} onchange={handleDraftChange}></lightning-combobox>
           <lightning-input label="Affected persons / functions" data-field="affectedFunctions" value={draft.affectedFunctions} onchange={handleDraftChange}></lightning-input>
-          <lightning-textarea label="Impact assessment detail *" data-field="impactAssessmentDetail" value={draft.impactAssessmentDetail} onchange={handleDraftChange}></lightning-textarea>
+          <lightning-textarea class="full-width" label="Impact assessment detail *" data-field="impactAssessmentDetail" value={draft.impactAssessmentDetail} onchange={handleDraftChange}></lightning-textarea>
         </div>
       </section>
 
@@ -125,6 +139,10 @@
           <lightning-textarea label="Effectiveness check" data-field="effectivenessCheck" value={draft.effectivenessCheck} onchange={handleDraftChange}></lightning-textarea>
           <lightning-input label="CAPA owner" data-field="capaOwner" value={draft.capaOwner} onchange={handleDraftChange}></lightning-input>
           <lightning-input type="number" label="Estimated closure days" data-field="estimatedClosureDays" value={closureDays} onchange={handleDraftChange}></lightning-input>
+          <lightning-input type="date" label="Target closure date" data-field="targetClosureDate" value={draft.targetClosureDate} onchange={handleDraftChange}></lightning-input>
+          <lightning-textarea label="Regulatory references *" data-field="regulatoryRef" value={draft.regulatoryRef} onchange={handleDraftChange}></lightning-textarea>
+          <lightning-textarea label="Supporting documents" data-field="supportingDocuments" value={draft.supportingDocuments} onchange={handleDraftChange}></lightning-textarea>
+          <lightning-textarea label="Additional notes" data-field="additionalNotes" value={draft.additionalNotes} onchange={handleDraftChange}></lightning-textarea>
           <lightning-textarea label="Agent / AI generated detail" data-field="agentSummary" value={draft.agentSummary} onchange={handleDraftChange}></lightning-textarea>
         </div>
       </section>

@@ -118,6 +118,9 @@ public with sharing class QmsGenAiClient {
       'effectivenessCheckRequired' => value(draft, 'effectivenessCheckRequired'),
       'affectedFunctions' => value(draft, 'affectedFunctions'),
       'impactAssessmentDetail' => value(draft, 'impactAssessmentDetail'),
+      'supportingDocuments' => value(draft, 'supportingDocuments'),
+      'additionalNotes' => firstValue(draft, new List<String>{'additionalNotes', 'notes'}),
+      'targetClosureDate' => value(draft, 'targetClosureDate'),
       'agentSummary' => value(draft, 'agentSummary'),
       'createdBy' => UserInfo.getName(),
       'createdByUsername' => UserInfo.getUserName(),
@@ -138,16 +141,16 @@ public with sharing class QmsGenAiClient {
     shadow.Source_Case__c = caseRec.Id;
     shadow.QMS_CAPA_ID__c = qmsCapaId;
     shadow.Status__c = String.isBlank(value(data, 'status')) ? 'Under Review' : value(data, 'status');
-    shadow.Source_Record_ID__c = truncate(qmsRecordId, 80);
-    shadow.Source_Record_Type__c = truncate(String.valueOf(record.get('type')), 80);
-    shadow.Source_Record_Title__c = truncate(String.valueOf(record.get('title')), 255);
-    shadow.Source_Priority__c = truncate(String.valueOf(record.get('priority')), 40);
-    shadow.Site__c = truncate(String.valueOf(record.get('site')), 120);
-    shadow.Sector__c = truncate(String.valueOf(record.get('sector')), 80);
+    shadow.Source_Record_ID__c = truncate(valueOr(draft, 'sourceRecordId', qmsRecordId), 80);
+    shadow.Source_Record_Type__c = truncate(valueOr(draft, 'sourceRecordType', String.valueOf(record.get('type'))), 80);
+    shadow.Source_Record_Title__c = truncate(valueOr(draft, 'sourceTitle', String.valueOf(record.get('title'))), 255);
+    shadow.Source_Priority__c = truncate(valueOr(draft, 'sourcePriority', String.valueOf(record.get('priority'))), 40);
+    shadow.Site__c = truncate(valueOr(draft, 'sourceSite', String.valueOf(record.get('site'))), 120);
+    shadow.Sector__c = truncate(valueOr(draft, 'sector', String.valueOf(record.get('sector'))), 80);
     shadow.Risk_Rating__c = truncate(valueOr(draft, 'riskRating', String.valueOf(record.get('priority'))), 40);
     shadow.CAPA_Owner__c = truncate(firstValue(draft, new List<String>{'capaOwner', 'proposedOwner'}), 120);
     shadow.Estimated_Closure_Days__c = closureDaysValue(draft.get('estimatedClosureDays'));
-    shadow.Target_Closure_Date__c = Date.today().addDays(closureDaysValue(draft.get('estimatedClosureDays')));
+    shadow.Target_Closure_Date__c = targetClosureDate(draft);
     shadow.Root_Cause__c = value(draft, 'rootCause');
     shadow.Immediate_Action__c = value(draft, 'immediateAction');
     shadow.Corrective_Action__c = value(draft, 'correctiveAction');
@@ -155,8 +158,8 @@ public with sharing class QmsGenAiClient {
     shadow.Effectiveness_Check__c = value(draft, 'effectivenessCheck');
     shadow.Effectiveness_Check_Required__c = truncate(value(draft, 'effectivenessCheckRequired'), 20);
     shadow.Regulatory_References__c = regulatoryRefsText(draft);
-    shadow.Supporting_Documents__c = attachmentSummary(caseFileContext(caseRec.Id));
-    shadow.Additional_Notes__c = value(draft, 'notes');
+    shadow.Supporting_Documents__c = valueOr(draft, 'supportingDocuments', attachmentSummary(caseFileContext(caseRec.Id)));
+    shadow.Additional_Notes__c = firstValue(draft, new List<String>{'additionalNotes', 'notes'});
     shadow.LLM_Provider__c = truncate(value(draft, '_provider'), 80);
     shadow.LLM_Model__c = truncate(value(draft, '_model'), 160);
     shadow.Impact_Scope__c = truncate(value(draft, 'impactScope'), 120);
@@ -406,6 +409,18 @@ public with sharing class QmsGenAiClient {
     } catch (Exception e) {
       return 30;
     }
+  }
+
+  private static Date targetClosureDate(Map<String, Object> draft) {
+    String raw = value(draft, 'targetClosureDate');
+    if (!String.isBlank(raw)) {
+      try {
+        return Date.valueOf(raw);
+      } catch (Exception e) {
+        // Fall through to closure-days derived date.
+      }
+    }
+    return Date.today().addDays(closureDaysValue(draft == null ? null : draft.get('estimatedClosureDays')));
   }
 
   private static Object normalizedRegulatoryRefs(Map<String, Object> draft) {
