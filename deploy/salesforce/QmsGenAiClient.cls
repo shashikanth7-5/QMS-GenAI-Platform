@@ -239,6 +239,38 @@ public with sharing class QmsGenAiClient {
   }
 
   @AuraEnabled(cacheable=false)
+  public static Map<String, Object> submitCapaForApproval(Id caseId, Id salesforceCapaId) {
+    QMS_CAPA__c row = [SELECT Id, Status__c FROM QMS_CAPA__c WHERE Id = :salesforceCapaId AND Source_Case__c = :caseId LIMIT 1];
+    if (row.Status__c != 'Under Review') throw new QmsCalloutException('Only CAPAs with status Under Review can be submitted for approval.');
+    Approval.ProcessSubmitRequest request = new Approval.ProcessSubmitRequest();
+    request.setObjectId(row.Id);
+    request.setProcessDefinitionNameOrId('QMS_CAPA_Quality_Approval');
+    request.setComments('Submitted from the QMS GenAI Case panel.');
+    Approval.ProcessResult result = Approval.process(request);
+    if (!result.isSuccess()) {
+      Database.Error[] errors = result.getErrors();
+      String message = errors.isEmpty() ? 'Unknown approval process error.' : errors[0].getMessage();
+      throw new QmsCalloutException('Salesforce approval submission failed: ' + message);
+    }
+    return new Map<String, Object>{ 'approvalInstanceId' => result.getInstanceId(), 'relatedCapas' => listRelatedCapas(caseId) };
+  }
+
+  public class CapaApprovalSyncRequest {
+    @InvocableVariable(required=true) public Id salesforceCapaId;
+  }
+
+  @InvocableMethod(label='Sync QMS CAPA approval outcome' callout=true)
+  public static void syncApprovalOutcome(List<CapaApprovalSyncRequest> requests) {
+    Set<Id> ids = new Set<Id>();
+    for (CapaApprovalSyncRequest request : requests) if (request != null && request.salesforceCapaId != null) ids.add(request.salesforceCapaId);
+    for (QMS_CAPA__c row : [SELECT Id, QMS_CAPA_ID__c, Status__c FROM QMS_CAPA__c WHERE Id IN :ids AND Status__c IN ('Approved', 'Pending Correction')]) {
+      if (String.isBlank(row.QMS_CAPA_ID__c)) continue;
+      HttpRequest req = baseRequest('/api/v1/capas/' + EncodingUtil.urlEncode(row.QMS_CAPA_ID__c, 'UTF-8') + '/status', 'PATCH', 'sf-approval-sync-' + row.Id + '-' + DateTime.now().getTime());
+      req.setBody(JSON.serialize(new Map<String, Object>{ 'status' => row.Status__c, 'approvalSource' => 'salesforce', 'approvalDecision' => row.Status__c == 'Approved' ? 'Approved' : 'Rejected', 'reviewerUsername' => UserInfo.getUserName(), 'reviewerName' => UserInfo.getName(), 'meaning' => 'Salesforce Approval Process decision', 'comment' => 'Synchronized from Salesforce Approval Process.' }));
+      sendJson(req, 'QMS Salesforce approval sync failed');
+    }
+  }
+  @AuraEnabled(cacheable=false)
   public static Map<String, Object> updateCapaStatus(Id caseId, Id salesforceCapaId, String status, String signerUsername, String signerPassword, String meaning, String comment) {
     QMS_CAPA__c row = [
       SELECT Id, QMS_CAPA_ID__c

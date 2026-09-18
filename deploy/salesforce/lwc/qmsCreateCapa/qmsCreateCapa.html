@@ -179,8 +179,18 @@
                     <p>{capa.qmsCapaId} | {capa.status} | {capa.risk} | {capa.owner}</p>
                   </div>
                   <div class="capa-actions">
-                    <lightning-button variant="success" label="Approve with eSign" data-id={capa.id} data-status="Approved" onclick={handleDecisionClick} disabled={isBusy}></lightning-button>
-                    <lightning-button variant="destructive" label="Reject" data-id={capa.id} data-status="Rejected" onclick={handleDecisionClick} disabled={isBusy}></lightning-button>
+                    <template if:true={capa.isReadyForSubmission}>
+                      <lightning-button variant="brand" label="Submit for Approval" data-id={capa.id} onclick={handleSubmitForApproval} disabled={isBusy}></lightning-button>
+                    </template>
+                    <template if:true={capa.isPendingApproval}>
+                      <span class="decision-status pending"><lightning-icon icon-name="utility:clock" size="xx-small" alternative-text="Pending approval"></lightning-icon>Pending Salesforce approval</span>
+                    </template>
+                    <template if:true={capa.isApproved}>
+                      <span class="decision-status approved"><lightning-icon icon-name="utility:success" size="xx-small" alternative-text="Approved"></lightning-icon>Approved in Salesforce</span>
+                    </template>
+                    <template if:true={capa.isReturnedForCorrection}>
+                      <span class="decision-status correction"><lightning-icon icon-name="utility:warning" size="xx-small" alternative-text="Changes requested"></lightning-icon>Changes requested</span>
+                    </template>
                   </div>
                 </div>
                 <div class="detail-grid">
@@ -209,29 +219,6 @@
         </template>
       </section>
 
-      <template if:true={showESignModal}>
-        <section class="modal-backdrop">
-          <div class="modal esign-modal">
-            <div class="modal-head">
-              <div>
-                <h3>Electronic Signature</h3>
-                <p>{pendingDecision.status} {pendingDecision.qmsCapaId}. Password is verified by QMS for Part 11 style review.</p>
-              </div>
-              <lightning-button-icon icon-name="utility:close" alternative-text="Close" onclick={closeESignModal}></lightning-button-icon>
-            </div>
-            <div class="form-grid compact">
-              <lightning-input label="Reviewer username" data-field="signerUsername" value={eSign.signerUsername} onchange={handleESignChange}></lightning-input>
-              <lightning-input type="password" label="Reviewer password" data-field="signerPassword" value={eSign.signerPassword} onchange={handleESignChange}></lightning-input>
-              <lightning-textarea class="full-width" label="Signature meaning" data-field="meaning" value={eSign.meaning} onchange={handleESignChange}></lightning-textarea>
-              <lightning-textarea class="full-width" label="Review comment" data-field="comment" value={eSign.comment} onchange={handleESignChange}></lightning-textarea>
-            </div>
-            <div class="actions modal-actions">
-              <lightning-button variant="neutral" label="Cancel" onclick={closeESignModal}></lightning-button>
-              <lightning-button variant="brand" label="Submit eSignature" onclick={submitESignDecision} disabled={isBusy}></lightning-button>
-            </div>
-          </div>
-        </section>
-      </template>
     </div>
   </lightning-card>
 </template>

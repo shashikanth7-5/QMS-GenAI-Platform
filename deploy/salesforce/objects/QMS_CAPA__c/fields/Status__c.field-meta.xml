@@ -10,6 +10,7 @@
             <sorted>false</sorted>
             <value><fullName>Draft Generated</fullName><default>false</default><label>Draft Generated</label></value>
             <value><fullName>Under Review</fullName><default>true</default><label>Under Review</label></value>
+            <value><fullName>Pending Approval</fullName><default>false</default><label>Pending Approval</label></value>
             <value><fullName>Pending Correction</fullName><default>false</default><label>Pending Correction</label></value>
             <value><fullName>Approved</fullName><default>false</default><label>Approved</label></value>
             <value><fullName>Rejected</fullName><default>false</default><label>Rejected</label></value>
