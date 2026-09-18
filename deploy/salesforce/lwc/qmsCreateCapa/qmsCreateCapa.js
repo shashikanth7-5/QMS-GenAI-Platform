@@ -8,7 +8,7 @@ import proposeRcaModels from '@salesforce/apex/QmsGenAiClient.proposeRcaModels';
 import runAgentPipeline from '@salesforce/apex/QmsGenAiClient.runAgentPipeline';
 import saveCapaDraft from '@salesforce/apex/QmsGenAiClient.saveCapaDraft';
 import listRelatedCapas from '@salesforce/apex/QmsGenAiClient.listRelatedCapas';
-import updateCapaStatus from '@salesforce/apex/QmsGenAiClient.updateCapaStatus';
+import submitCapaForApproval from '@salesforce/apex/QmsGenAiClient.submitCapaForApproval';
 
 export default class QmsCreateCapa extends LightningElement {
   @api recordId;
@@ -24,11 +24,7 @@ export default class QmsCreateCapa extends LightningElement {
   @track apiHost = '';
   @track selectedMethod = 'fishbone';
   @track lastSave;
-  @track approvalRequested = false;
   @track showModelModal = false;
-  @track showESignModal = false;
-  @track pendingDecision = {};
-  @track eSign = {};
 
   connectedCallback() {
     this.loadContext();
@@ -140,13 +136,26 @@ export default class QmsCreateCapa extends LightningElement {
       { label: 'Critical', value: 'Critical' }
     ];
   }
+  normalizeRelatedCapas(rows) {
+    return (rows || []).map((capa) => {
+      const status = capa.status || 'Under Review';
+      return {
+        ...capa,
+        status,
+        isReadyForSubmission: status === 'Under Review',
+        isPendingApproval: status === 'Pending Approval',
+        isApproved: status === 'Approved',
+        isReturnedForCorrection: status === 'Rejected' || status === 'Pending Correction'
+      };
+    });
+  }
 
   loadContext() {
     this.setBusy('Loading QMS context...');
     getCaseContext({ caseId: this.recordId })
       .then((res) => {
         this.record = res.record || {};
-        this.relatedCapas = res.relatedCapas || [];
+        this.relatedCapas = this.normalizeRelatedCapas(res.relatedCapas);
         this.apiHost = (res.apiHost || '').replace(/\/$/, '');
         this.draft = this.buildDefaultDraft();
         this.clearBusy();
@@ -401,75 +410,29 @@ export default class QmsCreateCapa extends LightningElement {
     saveCapaDraft({ caseId: this.recordId, draftJson: JSON.stringify(this.draft) })
       .then((res) => {
         this.lastSave = res;
-        this.relatedCapas = res.relatedCapas || [];
-        this.approvalRequested = window.confirm('CAPA draft saved under this Salesforce Case. Do you want to open the QMS approval/review page now?');
-        if (this.approvalRequested) {
-          this.openInQms();
-        }
+        this.relatedCapas = this.normalizeRelatedCapas(res.relatedCapas);
         this.toast('CAPA saved', `${res.qmsCapaId || 'Draft'} is linked to this Case.`, 'success');
         this.clearBusy();
       })
       .catch((err) => this.handleError('CAPA save failed', err));
   }
 
-  handleDecisionClick(event) {
-    const id = event.currentTarget.dataset.id;
-    const status = event.currentTarget.dataset.status;
-    const capa = this.relatedCapas.find((row) => row.id === id);
-    this.pendingDecision = {
-      id,
-      status,
-      name: capa ? capa.name : '',
-      qmsCapaId: capa ? capa.qmsCapaId : ''
-    };
-    this.eSign = {
-      signerUsername: '',
-      signerPassword: '',
-      meaning: status === 'Approved' ? 'I approve this CAPA after quality review.' : 'I reject this CAPA and request correction.',
-      comment: ''
-    };
-    this.showESignModal = true;
-  }
-
-  handleESignChange(event) {
-    const field = event.target.dataset.field;
-    this.eSign = { ...this.eSign, [field]: event.target.value };
-  }
-
-  closeESignModal() {
-    this.showESignModal = false;
-    this.pendingDecision = {};
-    this.eSign = {};
-  }
-
-  submitESignDecision() {
-    if (!this.eSign.signerUsername || !this.eSign.signerPassword || !this.eSign.meaning) {
-      window.alert('Reviewer username, password, and meaning are required for electronic signature.');
-      return;
-    }
-    this.setBusy(`${this.pendingDecision.status} CAPA with e-signature...`);
-    updateCapaStatus({
-      caseId: this.recordId,
-      salesforceCapaId: this.pendingDecision.id,
-      status: this.pendingDecision.status,
-      signerUsername: this.eSign.signerUsername,
-      signerPassword: this.eSign.signerPassword,
-      meaning: this.eSign.meaning,
-      comment: this.eSign.comment
-    })
+  handleSubmitForApproval(event) {
+    const salesforceCapaId = event.currentTarget.dataset.id;
+    this.setBusy('Submitting CAPA for Salesforce approval...');
+    submitCapaForApproval({ caseId: this.recordId, salesforceCapaId })
       .then((res) => {
-        this.relatedCapas = res.relatedCapas || [];
-        this.toast('CAPA status updated', `${this.pendingDecision.qmsCapaId || this.pendingDecision.name} -> ${res.status}`, 'success');
-        this.closeESignModal();
+        this.relatedCapas = this.normalizeRelatedCapas(res.relatedCapas);
+        this.toast('Submitted for approval', 'The assigned Salesforce Quality approver has been notified.', 'success');
         this.clearBusy();
       })
-      .catch((err) => this.handleError('CAPA e-signature failed', err));
+      .catch((err) => this.handleError('CAPA approval submission failed', err));
   }
 
   handleRefreshRelated() {
     listRelatedCapas({ caseId: this.recordId })
       .then((rows) => {
-        this.relatedCapas = rows || [];
+        this.relatedCapas = this.normalizeRelatedCapas(rows);
       })
       .catch((err) => this.handleError('Related CAPA refresh failed', err));
   }

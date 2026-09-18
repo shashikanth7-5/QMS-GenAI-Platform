@@ -231,6 +231,20 @@
   justify-content: flex-end;
 }
 
+.decision-status {
+  align-items: center;
+  border: 1px solid;
+  border-radius: 1rem;
+  display: inline-flex;
+  font-size: 0.75rem;
+  font-weight: 700;
+  gap: 0.3rem;
+  padding: 0.35rem 0.65rem;
+}
+
+.decision-status.pending { background: #eef5ff; border-color: #7ba4dc; color: #174f91; }
+.decision-status.approved { background: #edf9f0; border-color: #72b889; color: #12673a; }
+.decision-status.correction { background: #fff6e4; border-color: #e3ad47; color: #714d00; }
 .detail-grid {
   display: grid;
   gap: 0.5rem;

@@ -561,7 +561,15 @@ def update_status(capa_id):
     comment = body.get("comment", "")
     workflow_status = "Pending Correction" if status == "Rejected" else status
 
-    if status in ("Approved", "Rejected"):
+    salesforce_approval = body.get("approvalSource") == "salesforce"
+    if salesforce_approval and status in ("Approved", "Pending Correction"):
+        reviewer_username = body.get("reviewerUsername") or "salesforce-approval"
+        decision = body.get("approvalDecision") or ("Approved" if status == "Approved" else "Rejected")
+        signed_at = datetime.utcnow().isoformat() + "Z"
+        signature = {"signedBy": reviewer_username, "signedByName": body.get("reviewerName") or reviewer_username, "signedByRole": "salesforce_approver", "meaning": body.get("meaning") or "Salesforce Approval Process decision", "decision": decision, "signedAt": signed_at, "capaHash": capa_content_hash(existing), "basis": ["Salesforce Approval Process", "21 CFR Part 11 §11.10"], "source": "salesforce"}
+        metadata.setdefault("electronicSignatures", []).append(signature)
+        metadata["lastReview"] = {"decision": decision, "workflowStatus": workflow_status, "comment": comment, "reviewedBy": reviewer_username, "reviewedAt": signed_at, "eSignature": signature}
+    elif status in ("Approved", "Rejected"):
         esign = body.get("eSignature") or {}
         reviewer_username = esign.get("signedBy") or esign.get("username") or ""
         password = esign.get("password") or ""
