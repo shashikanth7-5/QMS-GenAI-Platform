@@ -10,10 +10,5 @@
         <targetConfig targets="lightning__RecordAction">
             <actionType>ScreenAction</actionType>
         </targetConfig>
-        <targetConfig targets="lightning__RecordPage">
-            <objects>
-                <object>Case</object>
-            </objects>
-        </targetConfig>
     </targetConfigs>
 </LightningComponentBundle>

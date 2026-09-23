@@ -69,7 +69,7 @@
             multiple
             onuploadfinished={handleUploadFinished}>
           </lightning-file-upload>
-          <p class="hint">RCA uses Case fields plus the latest 15 Salesforce files. Text, CSV, JSON, XML, and log files include snippets; other files are included as traceable file context.</p>
+          <p class="hint">RCA uses record fields plus the latest 15 Salesforce files. Text, CSV, JSON, XML, and log files include snippets; other files are included as traceable file context.</p>
         </div>
       </section>
 
@@ -99,7 +99,7 @@
       <section class="block">
         <div class="block-head">
           <h3>Source Record</h3>
-          <span class="muted">Loaded from Salesforce Case</span>
+          <span class="muted">Loaded from {sourceRecordLabel}</span>
         </div>
         <div class="form-grid compact">
           <lightning-input label="Record ID" data-field="sourceRecordId" value={draft.sourceRecordId} onchange={handleDraftChange}></lightning-input>
@@ -167,7 +167,7 @@
       <section class="block">
         <div class="block-head">
           <h3>Related CAPA Records</h3>
-          <span class="muted">Linked to this Case in Salesforce</span>
+          <span class="muted">Linked to this Salesforce record</span>
         </div>
         <template if:true={hasRelatedCapas}>
           <div class="related-list">

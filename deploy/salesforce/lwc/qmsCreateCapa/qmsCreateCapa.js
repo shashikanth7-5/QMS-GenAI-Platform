@@ -58,6 +58,10 @@ export default class QmsCreateCapa extends LightningElement {
       .join(' | ');
   }
 
+  get sourceRecordLabel() {
+    return this.record.salesforceObject || 'Salesforce record';
+  }
+
   get capaStatus() {
     return this.lastSave && this.lastSave.qmsCapaId ? 'Under Review' : this.draft.rootCause ? 'Draft prepared' : 'Not triggered';
   }
@@ -187,7 +191,7 @@ export default class QmsCreateCapa extends LightningElement {
       authorityNotificationRequired: 'No',
       effectivenessCheckRequired: 'Yes',
       affectedFunctions: 'QA, manufacturing, supplier contact, patient/user if applicable',
-      impactAssessmentDetail: 'CAPA eligibility will be confirmed by QMS agents using this Salesforce Case and attached evidence.',
+      impactAssessmentDetail: `CAPA eligibility will be confirmed by QMS agents using this ${this.sourceRecordLabel} and attached evidence.`,
       regulatoryRef: '21 CFR 820.100; ISO 13485:2016',
       supportingDocuments: this.attachmentLabel,
       additionalNotes: ''
@@ -354,7 +358,7 @@ export default class QmsCreateCapa extends LightningElement {
 
   handleGenerateDraft() {
     if (!this.rootCauseText) {
-      const message = 'Run RCA Analysis first so the CAPA draft is based on this Salesforce Case and its attachments.';
+      const message = `Run RCA Analysis first so the CAPA draft is based on this ${this.sourceRecordLabel} and its attachments.`;
       this.error = message;
       window.alert(message);
       this.toast('RCA required', message, 'warning');
@@ -439,7 +443,7 @@ export default class QmsCreateCapa extends LightningElement {
 
   handleUploadFinished(event) {
     const count = event.detail.files.length;
-    this.toast('Attachment added', `${count} Salesforce file(s) attached to the Case. Refresh context before RCA.`, 'success');
+    this.toast('Attachment added', `${count} Salesforce file(s) attached to this record. Refresh context before RCA.`, 'success');
     this.loadContext();
   }
 

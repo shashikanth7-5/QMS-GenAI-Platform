@@ -30,6 +30,11 @@ _SENSITIVE_PATTERNS = [
     re.compile(r"\b(?:\+?\d[\d \-().]{8,}\d)\b"),
     re.compile(r"\b(?:\d[ -]*?){13,19}\b"),
     re.compile(r"\b\d{3}-\d{2}-\d{4}\b"),
+    re.compile(
+        r"(?i)\b(patient|customer|complainant|reporter|contractor|technician|operator|reviewer|approver|employee|contact|owner)\s*"
+        r"(name|full name)?\s*[:=\-]\s*[A-Z][A-Za-z'.-]+(?:\s+[A-Z][A-Za-z'.-]+){0,3}\b"
+    ),
+    re.compile(r"(?i)\b(gender|sex)\s*[:=\-]\s*(male|female|non[- ]?binary|other|unknown)\b"),
 ]
 
 

@@ -9,9 +9,9 @@ public with sharing class QmsGenAiClient {
 
   @AuraEnabled(cacheable=false)
   public static Map<String, Object> getCaseContext(Id caseId) {
-    Case caseRec = loadCase(caseId);
+    SObject sourceRec = loadSourceRecord(caseId);
     return new Map<String, Object>{
-      'record' => caseToQmsRecord(caseRec, true),
+      'record' => sourceRecordToQmsRecord(sourceRec, true),
       'relatedCapas' => listRelatedCapas(caseId),
       'apiHost' => getApiHost()
     };
@@ -19,32 +19,32 @@ public with sharing class QmsGenAiClient {
 
   @AuraEnabled(cacheable=false)
   public static Map<String, Object> generateCapa(Id caseId) {
-    Case caseRec = loadCase(caseId);
-    HttpRequest req = baseRequest('/api/v1/capa/generate', 'POST', 'sf-capa-generate-' + caseRec.Id);
-    req.setBody(JSON.serialize(new Map<String, Object>{ 'record' => caseToQmsRecord(caseRec, true) }));
+    SObject sourceRec = loadSourceRecord(caseId);
+    HttpRequest req = baseRequest('/api/v1/capa/generate', 'POST', 'sf-capa-generate-' + sourceRec.Id);
+    req.setBody(JSON.serialize(new Map<String, Object>{ 'record' => sourceRecordToQmsRecord(sourceRec, true) }));
     return sendJson(req, 'QMS /api/v1/capa/generate failed');
   }
 
   @AuraEnabled(cacheable=false)
   public static Map<String, Object> generateCapaFromRca(Id caseId, String rcaJson) {
-    Case caseRec = loadCase(caseId);
-    Map<String, Object> record = caseToQmsRecord(caseRec, true);
+    SObject sourceRec = loadSourceRecord(caseId);
+    Map<String, Object> record = sourceRecordToQmsRecord(sourceRec, true);
     Map<String, Object> rca = parseMap(rcaJson);
     record.put('rca', rca);
     record.put('rootCause', value(rca, 'rootCause'));
 
-    HttpRequest req = baseRequest('/api/v1/capa/generate', 'POST', 'sf-capa-generate-rca-' + caseRec.Id + '-' + DateTime.now().getTime());
+    HttpRequest req = baseRequest('/api/v1/capa/generate', 'POST', 'sf-capa-generate-rca-' + sourceRec.Id + '-' + DateTime.now().getTime());
     req.setBody(JSON.serialize(new Map<String, Object>{ 'record' => record }));
     return sendJson(req, 'QMS /api/v1/capa/generate failed');
   }
 
   @AuraEnabled(cacheable=false)
   public static Map<String, Object> runRca(Id caseId, String method) {
-    Case caseRec = loadCase(caseId);
+    SObject sourceRec = loadSourceRecord(caseId);
     String selectedMethod = String.isBlank(method) ? 'fishbone' : method;
-    HttpRequest req = baseRequest('/api/v1/rca/analyze', 'POST', 'sf-rca-' + selectedMethod + '-' + caseRec.Id + '-' + DateTime.now().getTime());
+    HttpRequest req = baseRequest('/api/v1/rca/analyze', 'POST', 'sf-rca-' + selectedMethod + '-' + sourceRec.Id + '-' + DateTime.now().getTime());
     req.setBody(JSON.serialize(new Map<String, Object>{
-      'record' => caseToQmsRecord(caseRec, true),
+      'record' => sourceRecordToQmsRecord(sourceRec, true),
       'method' => selectedMethod
     }));
     return sendJson(req, 'QMS /api/v1/rca/analyze failed');
@@ -63,11 +63,11 @@ public with sharing class QmsGenAiClient {
 
   @AuraEnabled(cacheable=false)
   public static Map<String, Object> proposeRcaModels(Id caseId, String method) {
-    Case caseRec = loadCase(caseId);
+    SObject sourceRec = loadSourceRecord(caseId);
     String selectedMethod = String.isBlank(method) ? 'fishbone' : method;
-    HttpRequest req = baseRequest('/api/v1/rca/propose', 'POST', 'sf-rca-models-' + selectedMethod + '-' + caseRec.Id + '-' + DateTime.now().getTime());
+    HttpRequest req = baseRequest('/api/v1/rca/propose', 'POST', 'sf-rca-models-' + selectedMethod + '-' + sourceRec.Id + '-' + DateTime.now().getTime());
     req.setBody(JSON.serialize(new Map<String, Object>{
-      'record' => caseToQmsRecord(caseRec, true),
+      'record' => sourceRecordToQmsRecord(sourceRec, true),
       'method' => selectedMethod
     }));
     return sendJson(req, 'QMS /api/v1/rca/propose failed');
@@ -75,11 +75,11 @@ public with sharing class QmsGenAiClient {
 
   @AuraEnabled(cacheable=false)
   public static Map<String, Object> runAgentPipeline(Id caseId, Boolean saveDraft) {
-    Case caseRec = loadCase(caseId);
-    HttpRequest req = baseRequest('/api/v1/integrations/quality-event/capa', 'POST', 'sf-agent-' + caseRec.Id);
+    SObject sourceRec = loadSourceRecord(caseId);
+    HttpRequest req = baseRequest('/api/v1/integrations/quality-event/capa', 'POST', 'sf-agent-' + sourceRec.Id);
     req.setTimeout(120000);
     req.setBody(JSON.serialize(new Map<String, Object>{
-      'record' => caseToQmsRecord(caseRec, true),
+      'record' => sourceRecordToQmsRecord(sourceRec, true),
       'options' => new Map<String, Object>{'saveDraft' => saveDraft}
     }));
     return sendJson(req, 'QMS /api/v1/integrations failed');
@@ -87,9 +87,9 @@ public with sharing class QmsGenAiClient {
 
   @AuraEnabled(cacheable=false)
   public static Map<String, Object> saveCapaDraft(Id caseId, String draftJson) {
-    Case caseRec = loadCase(caseId);
+    SObject sourceRec = loadSourceRecord(caseId);
     Map<String, Object> draft = parseMap(draftJson);
-    Map<String, Object> record = caseToQmsRecord(caseRec, false);
+    Map<String, Object> record = sourceRecordToQmsRecord(sourceRec, false);
     String qmsRecordId = String.valueOf(record.get('id'));
 
     Map<String, Object> body = new Map<String, Object>{
@@ -127,7 +127,7 @@ public with sharing class QmsGenAiClient {
       'createdByRole' => 'salesforce'
     };
 
-    HttpRequest req = baseRequest('/api/v1/capa/save', 'POST', 'sf-capa-save-' + caseRec.Id + '-' + DateTime.now().getTime());
+    HttpRequest req = baseRequest('/api/v1/capa/save', 'POST', 'sf-capa-save-' + sourceRec.Id + '-' + DateTime.now().getTime());
     req.setBody(JSON.serialize(body));
     Map<String, Object> saveResult = sendJson(req, 'QMS /api/v1/capa/save failed');
 
@@ -138,7 +138,9 @@ public with sharing class QmsGenAiClient {
     }
 
     QMS_CAPA__c shadow = new QMS_CAPA__c();
-    shadow.Source_Case__c = caseRec.Id;
+    if (sourceRec.getSObjectType() == Case.SObjectType) {
+      shadow.Source_Case__c = sourceRec.Id;
+    }
     shadow.QMS_CAPA_ID__c = qmsCapaId;
     shadow.Status__c = String.isBlank(value(data, 'status')) ? 'Under Review' : value(data, 'status');
     shadow.Source_Record_ID__c = truncate(valueOr(draft, 'sourceRecordId', qmsRecordId), 80);
@@ -158,7 +160,7 @@ public with sharing class QmsGenAiClient {
     shadow.Effectiveness_Check__c = value(draft, 'effectivenessCheck');
     shadow.Effectiveness_Check_Required__c = truncate(value(draft, 'effectivenessCheckRequired'), 20);
     shadow.Regulatory_References__c = regulatoryRefsText(draft);
-    shadow.Supporting_Documents__c = valueOr(draft, 'supportingDocuments', attachmentSummary(caseFileContext(caseRec.Id)));
+    shadow.Supporting_Documents__c = valueOr(draft, 'supportingDocuments', attachmentSummary(recordFileContext(sourceRec.Id)));
     shadow.Additional_Notes__c = firstValue(draft, new List<String>{'additionalNotes', 'notes'});
     shadow.LLM_Provider__c = truncate(value(draft, '_provider'), 80);
     shadow.LLM_Model__c = truncate(value(draft, '_model'), 160);
@@ -183,7 +185,8 @@ public with sharing class QmsGenAiClient {
   @AuraEnabled(cacheable=false)
   public static List<Map<String, Object>> listRelatedCapas(Id caseId) {
     List<Map<String, Object>> rows = new List<Map<String, Object>>();
-    for (QMS_CAPA__c row : [
+    String recordIdText = String.valueOf(caseId);
+    List<QMS_CAPA__c> related = [
       SELECT Id, Name, QMS_CAPA_ID__c, Status__c, Risk_Rating__c, CAPA_Owner__c,
              Estimated_Closure_Days__c, QMS_URL__c, LLM_Provider__c, LLM_Model__c,
              Impact_Scope__c, Agent_Summary__c, Root_Cause__c, Immediate_Action__c,
@@ -194,10 +197,11 @@ public with sharing class QmsGenAiClient {
              Affected_Functions__c, Impact_Assessment_Detail__c, Effectiveness_Check__c,
              Regulatory_References__c, Supporting_Documents__c, Additional_Notes__c
       FROM QMS_CAPA__c
-      WHERE Source_Case__c = :caseId
+      WHERE Source_Case__c = :caseId OR Source_Record_ID__c = :recordIdText
       ORDER BY CreatedDate DESC
       LIMIT 10
-    ]) {
+    ];
+    for (QMS_CAPA__c row : related) {
       rows.add(new Map<String, Object>{
         'id' => row.Id,
         'name' => row.Name,
@@ -240,12 +244,13 @@ public with sharing class QmsGenAiClient {
 
   @AuraEnabled(cacheable=false)
   public static Map<String, Object> submitCapaForApproval(Id caseId, Id salesforceCapaId) {
-    QMS_CAPA__c row = [SELECT Id, Status__c FROM QMS_CAPA__c WHERE Id = :salesforceCapaId AND Source_Case__c = :caseId LIMIT 1];
+    String recordIdText = String.valueOf(caseId);
+    QMS_CAPA__c row = [SELECT Id, Status__c FROM QMS_CAPA__c WHERE Id = :salesforceCapaId AND (Source_Case__c = :caseId OR Source_Record_ID__c = :recordIdText) LIMIT 1];
     if (row.Status__c != 'Under Review') throw new QmsCalloutException('Only CAPAs with status Under Review can be submitted for approval.');
     Approval.ProcessSubmitRequest request = new Approval.ProcessSubmitRequest();
     request.setObjectId(row.Id);
     request.setProcessDefinitionNameOrId('QMS_CAPA_Quality_Approval');
-    request.setComments('Submitted from the QMS GenAI Case panel.');
+    request.setComments('Submitted from the QMS GenAI Salesforce record panel.');
     Approval.ProcessResult result = Approval.process(request);
     if (!result.isSuccess()) {
       Database.Error[] errors = result.getErrors();
@@ -272,10 +277,11 @@ public with sharing class QmsGenAiClient {
   }
   @AuraEnabled(cacheable=false)
   public static Map<String, Object> updateCapaStatus(Id caseId, Id salesforceCapaId, String status, String signerUsername, String signerPassword, String meaning, String comment) {
+    String recordIdText = String.valueOf(caseId);
     QMS_CAPA__c row = [
       SELECT Id, QMS_CAPA_ID__c
       FROM QMS_CAPA__c
-      WHERE Id = :salesforceCapaId AND Source_Case__c = :caseId
+      WHERE Id = :salesforceCapaId AND (Source_Case__c = :caseId OR Source_Record_ID__c = :recordIdText)
       LIMIT 1
     ];
 
@@ -321,32 +327,54 @@ public with sharing class QmsGenAiClient {
     return 'Medium';
   }
 
-  private static Case loadCase(Id caseId) {
-    return [
-      SELECT Id, CaseNumber, Subject, Description, Priority, Origin, AccountId, Status, Type
-      FROM Case
-      WHERE Id = :caseId
-      LIMIT 1
-    ];
+  private static SObject loadSourceRecord(Id recordId) {
+    Schema.SObjectType sourceType = recordId.getSObjectType();
+    Schema.DescribeSObjectResult describe = sourceType.getDescribe();
+    Map<String, Schema.SObjectField> fields = describe.fields.getMap();
+    Set<String> selected = new Set<String>{'Id'};
+    for (String fieldName : new List<String>{
+      'CaseNumber', 'Subject', 'Name', 'Description', 'Priority', 'Origin',
+      'AccountId', 'Status', 'Type', 'Site__c', 'Sector__c', 'Risk_Level__c',
+      'Risk_Rating__c', 'Complaint_Number__c', 'Title__c', 'Issue_Title__c',
+      'Summary__c', 'Product__c', 'Product_Family__c'
+    }) {
+      if (fields.containsKey(fieldName)) {
+        selected.add(fieldName);
+      }
+    }
+    String soql = 'SELECT ' + String.join(new List<String>(selected), ',') +
+      ' FROM ' + describe.getName() + ' WHERE Id = :recordId LIMIT 1';
+    return Database.query(soql);
   }
 
-  private static Map<String, Object> caseToQmsRecord(Case caseRec, Boolean includeFiles) {
+  private static Map<String, Object> sourceRecordToQmsRecord(SObject sourceRec, Boolean includeFiles) {
+    String objectApiName = sourceRec.getSObjectType().getDescribe().getName();
+    String sourceType = objectApiName == 'Case' ? 'complaint' : objectApiName;
+    String sourceNumber = firstField(sourceRec, new List<String>{'CaseNumber', 'Complaint_Number__c', 'Name'});
+    String title = firstField(sourceRec, new List<String>{'Subject', 'Issue_Title__c', 'Title__c', 'Name'});
+    String description = firstField(sourceRec, new List<String>{'Description', 'Summary__c'});
+    String priority = firstField(sourceRec, new List<String>{'Priority', 'Risk_Level__c', 'Risk_Rating__c'});
+    String sector = firstField(sourceRec, new List<String>{'Sector__c', 'Product_Family__c', 'Origin'});
+    String site = firstField(sourceRec, new List<String>{'Site__c', 'AccountId'});
+    String status = firstField(sourceRec, new List<String>{'Status'});
+
     Map<String, Object> record = new Map<String, Object>{
-      'id' => String.valueOf(caseRec.Id),
-      'externalId' => String.valueOf(caseRec.Id),
-      'caseNumber' => caseRec.CaseNumber,
-      'type' => 'complaint',
-      'sector' => (caseRec.Origin == 'Medical Device') ? 'Medical Device' : 'BioPharma',
-      'priority' => sfPriorityToQms(caseRec.Priority),
-      'title' => caseRec.Subject,
-      'description' => caseRec.Description,
-      'status' => caseRec.Status,
-      'site' => String.valueOf(caseRec.AccountId),
+      'id' => String.valueOf(sourceRec.Id),
+      'externalId' => String.valueOf(sourceRec.Id),
+      'caseNumber' => sourceNumber,
+      'salesforceObject' => objectApiName,
+      'type' => sourceType,
+      'sector' => String.isBlank(sector) ? 'BioPharma' : (sector == 'Medical Device' ? 'Medical Device' : sector),
+      'priority' => sfPriorityToQms(priority),
+      'title' => title,
+      'description' => description,
+      'status' => status,
+      'site' => site,
       'owner' => UserInfo.getUserName(),
       'regulatoryRef' => new List<String>{'21 CFR 820.100', 'ISO 13485:2016'}
     };
     if (includeFiles) {
-      List<Map<String, Object>> files = caseFileContext(caseRec.Id);
+      List<Map<String, Object>> files = recordFileContext(sourceRec.Id);
       record.put('attachments', files);
       record.put('attachmentCount', files.size());
       if (!files.isEmpty()) {
@@ -356,11 +384,24 @@ public with sharing class QmsGenAiClient {
     return record;
   }
 
-  private static List<Map<String, Object>> caseFileContext(Id caseId) {
+  private static String firstField(SObject sourceRec, List<String> names) {
+    Map<String, Schema.SObjectField> fields = sourceRec.getSObjectType().getDescribe().fields.getMap();
+    for (String name : names) {
+      if (fields.containsKey(name)) {
+        Object raw = sourceRec.get(name);
+        if (raw != null && !String.isBlank(String.valueOf(raw))) {
+          return String.valueOf(raw);
+        }
+      }
+    }
+    return '';
+  }
+
+  private static List<Map<String, Object>> recordFileContext(Id recordId) {
     List<ContentDocumentLink> links = [
       SELECT ContentDocument.LatestPublishedVersionId
       FROM ContentDocumentLink
-      WHERE LinkedEntityId = :caseId
+      WHERE LinkedEntityId = :recordId
       ORDER BY SystemModstamp DESC
       LIMIT :MAX_RCA_FILES
     ];
