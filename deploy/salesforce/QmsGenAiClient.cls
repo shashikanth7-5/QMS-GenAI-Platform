@@ -472,11 +472,21 @@ public with sharing class QmsGenAiClient {
     req.setEndpoint(NAMED_CRED + path);
     req.setMethod(method);
     req.setHeader('Content-Type', 'application/json');
-    req.setHeader('X-API-Key', '{!$Credential.Password}');
+    String apiKey = getApiKey();
+    req.setHeader('X-API-Key', String.isBlank(apiKey) ? '{!$Credential.Password}' : apiKey);
     req.setHeader('X-Tenant-Id', 'sf-sandbox');
     req.setHeader('Idempotency-Key', idempotencyKey);
     req.setTimeout(60000);
     return req;
+  }
+
+  @TestVisible
+  private static String getApiKey() {
+    QmsSettings__c settings = QmsSettings__c.getOrgDefaults();
+    if (settings != null && String.isNotBlank(settings.Api_Key__c)) {
+      return settings.Api_Key__c.trim();
+    }
+    return null;
   }
 
   private static Map<String, Object> sendJson(HttpRequest req, String failurePrefix) {
