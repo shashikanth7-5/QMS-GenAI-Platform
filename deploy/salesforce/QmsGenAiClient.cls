@@ -317,7 +317,7 @@ public with sharing class QmsGenAiClient {
       String host = settings.Api_Host__c;
       return host.endsWith('/') ? host.substring(0, host.length() - 1) : host;
     }
-    return 'https://qms-web-ovn9.onrender.com';
+    return 'https://qms-genai-platform.onrender.com';
   }
 
   @TestVisible
@@ -482,9 +482,21 @@ public with sharing class QmsGenAiClient {
   private static Map<String, Object> sendJson(HttpRequest req, String failurePrefix) {
     HttpResponse resp = new Http().send(req);
     if (resp.getStatusCode() < 200 || resp.getStatusCode() >= 300) {
-      throw new QmsCalloutException(failurePrefix + ' ' + resp.getStatusCode() + ': ' + resp.getBody());
+      throw new QmsCalloutException(failurePrefix + ' ' + resp.getStatusCode() + ': ' + responseMessage(resp));
     }
     return (Map<String, Object>) JSON.deserializeUntyped(resp.getBody());
+  }
+
+  private static String responseMessage(HttpResponse resp) {
+    String body = resp.getBody();
+    if (String.isBlank(body)) {
+      return resp.getStatus();
+    }
+    String contentType = resp.getHeader('Content-Type');
+    if (!String.isBlank(contentType) && contentType.toLowerCase().contains('text/html')) {
+      return 'QMS host returned HTML instead of JSON. Check the QMS_GenAI Named Credential URL and Render service status.';
+    }
+    return truncate(body, 1200);
   }
 
   private static Map<String, Object> parseMap(String rawJson) {

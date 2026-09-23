@@ -473,8 +473,16 @@ export default class QmsCreateCapa extends LightningElement {
 
   handleError(title, err) {
     this.loading = false;
-    this.error = err && err.body && err.body.message ? err.body.message : String(err);
+    this.error = this.cleanError(err && err.body && err.body.message ? err.body.message : String(err));
     this.toast(title, this.error, 'error');
+  }
+
+  cleanError(message) {
+    const raw = String(message || 'Unexpected QMS error.');
+    if (raw.includes('<!doctype') || raw.includes('<html') || raw.includes('challenge-platform')) {
+      return 'QMS returned an HTML challenge page instead of JSON. Check that Salesforce Named Credential QMS_GenAI points to https://qms-genai-platform.onrender.com and redeploy/wait for Render to finish.';
+    }
+    return raw.length > 1200 ? `${raw.slice(0, 1200)}...` : raw;
   }
 
   toast(title, message, variant) {
