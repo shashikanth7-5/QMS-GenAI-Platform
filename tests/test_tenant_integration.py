@@ -106,6 +106,43 @@ def test_idempotency_conflict_on_different_body(client):
     assert body.get("code") == "idempotency_conflict"
 
 
+def test_api_v1_capa_save_upserts_external_source_record(client):
+    from data.records import get_record_by_id
+    from services import tenant_service
+
+    _, key = tenant_service.create_tenant("api-tenant-capa-save")
+    headers = {
+        "X-API-Key": key,
+        "X-Tenant-Id": "api-tenant-capa-save",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "sourceRecordId": "500g800002TESTAAA",
+        "sourceRecordType": "complaint",
+        "sourceRecordTitle": "Salesforce complaint source",
+        "sector": "BioPharma",
+        "priority": "High",
+        "site": "SF Site",
+        "rootCause": "Documented equipment PM gap.",
+        "immediateAction": "Quarantine affected stock.",
+        "correctiveAction": "Complete PM and QA review.",
+        "preventiveAction": "Automate PM overdue alert.",
+        "capaOwner": "Quality Assurance Manager",
+        "effectivenessCheck": "No recurrence for three lots.",
+        "riskRating": "High",
+        "estimatedClosureDays": 30,
+        "regulatoryRef": ["21 CFR 820.100"],
+        "createdByUsername": "salesforce.user@example.com",
+    }
+
+    response = client.post("/api/v1/capa/save", json=payload, headers=headers)
+
+    assert response.status_code == 201
+    data = response.get_json()["data"]
+    assert data["sourceRecordId"] == payload["sourceRecordId"]
+    assert get_record_by_id(payload["sourceRecordId"]) is not None
+
+
 def test_webhook_replay_protection(client):
     """SF webhook rejects: no timestamp, stale timestamp, replayed nonce."""
     from services import tenant_service

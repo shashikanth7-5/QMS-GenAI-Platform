@@ -500,6 +500,19 @@ def api_save_capa():
         "_source":            "api_v1",
     }
     try:
+        upsert_external_record({
+            "id": body.get("sourceRecordId"),
+            "type": body.get("sourceRecordType") or "complaint",
+            "title": body.get("sourceRecordTitle") or f"External record {body.get('sourceRecordId')}",
+            "description": body.get("sourceRecordDescription") or body.get("description") or "",
+            "priority": body.get("priority") or body.get("riskRating") or "Medium",
+            "sector": body.get("sector") or "Medical Device",
+            "site": body.get("site") or "",
+            "owner": body.get("createdByUsername") or body.get("createdBy") or "api",
+            "status": "Draft Generated",
+            "regulatoryRef": regulatory_ref,
+            "_source": "api_v1",
+        })
         saved = save_capa(capa_record)
         return _ok({
             "capaId": saved.get("capaId", capa_id),
