@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
+    <deploymentStatus>Deployed</deploymentStatus>
+    <description>Quality complaint source record used by QMS GenAI to generate RCA and CAPA drafts.</description>
+    <enableActivities>true</enableActivities>
+    <enableBulkApi>true</enableBulkApi>
+    <enableFeeds>true</enableFeeds>
+    <enableHistory>true</enableHistory>
+    <enableReports>true</enableReports>
+    <enableSearch>true</enableSearch>
+    <label>Complaint</label>
+    <nameField>
+        <displayFormat>CMP-{00000}</displayFormat>
+        <label>Complaint Number</label>
+        <type>AutoNumber</type>
+    </nameField>
+    <pluralLabel>Complaints</pluralLabel>
+    <searchLayouts/>
+    <sharingModel>ReadWrite</sharingModel>
+</CustomObject>

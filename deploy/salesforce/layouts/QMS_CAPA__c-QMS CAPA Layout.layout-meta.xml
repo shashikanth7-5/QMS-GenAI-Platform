@@ -8,6 +8,7 @@
         <layoutColumns>
             <layoutItems><behavior>Readonly</behavior><field>QMS_CAPA_ID__c</field></layoutItems>
             <layoutItems><behavior>Readonly</behavior><field>Source_Case__c</field></layoutItems>
+            <layoutItems><behavior>Readonly</behavior><field>Source_Complaint__c</field></layoutItems>
             <layoutItems><behavior>Readonly</behavior><field>Source_Record_ID__c</field></layoutItems>
             <layoutItems><behavior>Readonly</behavior><field>Source_Record_Type__c</field></layoutItems>
         </layoutColumns>

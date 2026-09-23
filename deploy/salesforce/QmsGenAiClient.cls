@@ -140,6 +140,8 @@ public with sharing class QmsGenAiClient {
     QMS_CAPA__c shadow = new QMS_CAPA__c();
     if (sourceRec.getSObjectType() == Case.SObjectType) {
       shadow.Source_Case__c = sourceRec.Id;
+    } else if (sourceRec.getSObjectType().getDescribe().getName() == 'Complaint__c') {
+      shadow.Source_Complaint__c = sourceRec.Id;
     }
     shadow.QMS_CAPA_ID__c = qmsCapaId;
     shadow.Status__c = String.isBlank(value(data, 'status')) ? 'Under Review' : value(data, 'status');
@@ -197,7 +199,7 @@ public with sharing class QmsGenAiClient {
              Affected_Functions__c, Impact_Assessment_Detail__c, Effectiveness_Check__c,
              Regulatory_References__c, Supporting_Documents__c, Additional_Notes__c
       FROM QMS_CAPA__c
-      WHERE Source_Case__c = :caseId OR Source_Record_ID__c = :recordIdText
+      WHERE Source_Case__c = :caseId OR Source_Complaint__c = :caseId OR Source_Record_ID__c = :recordIdText
       ORDER BY CreatedDate DESC
       LIMIT 10
     ];
@@ -245,7 +247,7 @@ public with sharing class QmsGenAiClient {
   @AuraEnabled(cacheable=false)
   public static Map<String, Object> submitCapaForApproval(Id caseId, Id salesforceCapaId) {
     String recordIdText = String.valueOf(caseId);
-    QMS_CAPA__c row = [SELECT Id, Status__c FROM QMS_CAPA__c WHERE Id = :salesforceCapaId AND (Source_Case__c = :caseId OR Source_Record_ID__c = :recordIdText) LIMIT 1];
+    QMS_CAPA__c row = [SELECT Id, Status__c FROM QMS_CAPA__c WHERE Id = :salesforceCapaId AND (Source_Case__c = :caseId OR Source_Complaint__c = :caseId OR Source_Record_ID__c = :recordIdText) LIMIT 1];
     if (row.Status__c != 'Under Review') throw new QmsCalloutException('Only CAPAs with status Under Review can be submitted for approval.');
     Approval.ProcessSubmitRequest request = new Approval.ProcessSubmitRequest();
     request.setObjectId(row.Id);
@@ -281,7 +283,7 @@ public with sharing class QmsGenAiClient {
     QMS_CAPA__c row = [
       SELECT Id, QMS_CAPA_ID__c
       FROM QMS_CAPA__c
-      WHERE Id = :salesforceCapaId AND (Source_Case__c = :caseId OR Source_Record_ID__c = :recordIdText)
+      WHERE Id = :salesforceCapaId AND (Source_Case__c = :caseId OR Source_Complaint__c = :caseId OR Source_Record_ID__c = :recordIdText)
       LIMIT 1
     ];
 
@@ -333,8 +335,8 @@ public with sharing class QmsGenAiClient {
     Map<String, Schema.SObjectField> fields = describe.fields.getMap();
     Set<String> selected = new Set<String>{'Id'};
     for (String fieldName : new List<String>{
-      'CaseNumber', 'Subject', 'Name', 'Description', 'Priority', 'Origin',
-      'AccountId', 'Status', 'Type', 'Site__c', 'Sector__c', 'Risk_Level__c',
+      'CaseNumber', 'Subject', 'Name', 'Description', 'Priority', 'Priority__c', 'Origin',
+      'AccountId', 'Status', 'Status__c', 'Type', 'Type__c', 'Site__c', 'Sector__c', 'Risk_Level__c',
       'Risk_Rating__c', 'Complaint_Number__c', 'Title__c', 'Issue_Title__c',
       'Summary__c', 'Product__c', 'Product_Family__c'
     }) {
@@ -349,14 +351,15 @@ public with sharing class QmsGenAiClient {
 
   private static Map<String, Object> sourceRecordToQmsRecord(SObject sourceRec, Boolean includeFiles) {
     String objectApiName = sourceRec.getSObjectType().getDescribe().getName();
-    String sourceType = objectApiName == 'Case' ? 'complaint' : objectApiName;
+    String sourceType = objectApiName == 'Case' ? 'complaint' : firstField(sourceRec, new List<String>{'Type__c', 'Type'});
+    if (String.isBlank(sourceType)) sourceType = objectApiName == 'Complaint__c' ? 'complaint' : objectApiName;
     String sourceNumber = firstField(sourceRec, new List<String>{'CaseNumber', 'Complaint_Number__c', 'Name'});
     String title = firstField(sourceRec, new List<String>{'Subject', 'Issue_Title__c', 'Title__c', 'Name'});
     String description = firstField(sourceRec, new List<String>{'Description', 'Summary__c'});
-    String priority = firstField(sourceRec, new List<String>{'Priority', 'Risk_Level__c', 'Risk_Rating__c'});
+    String priority = firstField(sourceRec, new List<String>{'Priority', 'Priority__c', 'Risk_Level__c', 'Risk_Rating__c'});
     String sector = firstField(sourceRec, new List<String>{'Sector__c', 'Product_Family__c', 'Origin'});
     String site = firstField(sourceRec, new List<String>{'Site__c', 'AccountId'});
-    String status = firstField(sourceRec, new List<String>{'Status'});
+    String status = firstField(sourceRec, new List<String>{'Status', 'Status__c'});
 
     Map<String, Object> record = new Map<String, Object>{
       'id' => String.valueOf(sourceRec.Id),

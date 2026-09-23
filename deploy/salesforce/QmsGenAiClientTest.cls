@@ -54,6 +54,22 @@ private class QmsGenAiClientTest {
     return c;
   }
 
+  private static Complaint__c newComplaint() {
+    Complaint__c complaint = new Complaint__c(
+      Issue_Title__c = 'ECG battery complaint',
+      Summary__c = 'Battery failed during incoming inspection.',
+      Priority__c = 'High',
+      Risk_Level__c = 'Critical',
+      Sector__c = 'Medical Device',
+      Site__c = 'Cognizant ECG Plant',
+      Type__c = 'complaint',
+      Status__c = 'New',
+      Product__c = 'ECG Machine'
+    );
+    insert complaint;
+    return complaint;
+  }
+
   @isTest
   static void testGenerateCapaSuccess() {
     Case c = newCase();
@@ -113,6 +129,22 @@ private class QmsGenAiClientTest {
     System.assertNotEquals(null, generated);
     System.assertEquals('CAPA-TEST-001', String.valueOf(saved.get('qmsCapaId')));
     System.assertEquals(1, [SELECT COUNT() FROM QMS_CAPA__c WHERE Source_Case__c = :c.Id]);
+  }
+
+  @isTest
+  static void testSaveShadowCapaFromComplaint() {
+    Complaint__c complaint = newComplaint();
+    Test.setMock(HttpCalloutMock.class, new QmsMock200());
+
+    Test.startTest();
+    Map<String, Object> saved = QmsGenAiClient.saveCapaDraft(
+      complaint.Id,
+      '{"rootCause":"battery supplier variation","immediateAction":"segregate inventory","correctiveAction":"supplier investigation","preventiveAction":"incoming battery screening","effectivenessCheck":"verify three lots","riskRating":"Critical","estimatedClosureDays":45,"impactScope":"Product impact","_provider":"groq","_model":"test"}'
+    );
+    Test.stopTest();
+
+    System.assertEquals('CAPA-TEST-001', String.valueOf(saved.get('qmsCapaId')));
+    System.assertEquals(1, [SELECT COUNT() FROM QMS_CAPA__c WHERE Source_Complaint__c = :complaint.Id]);
   }
 
   @isTest

@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Layout xmlns="http://soap.sforce.com/2006/04/metadata">
+    <layoutSections>
+        <customLabel>true</customLabel>
+        <detailHeading>true</detailHeading>
+        <editHeading>true</editHeading>
+        <label>Complaint Information</label>
+        <layoutColumns>
+            <layoutItems><behavior>Required</behavior><field>Issue_Title__c</field></layoutItems>
+            <layoutItems><behavior>Edit</behavior><field>Type__c</field></layoutItems>
+            <layoutItems><behavior>Edit</behavior><field>Status__c</field></layoutItems>
+            <layoutItems><behavior>Edit</behavior><field>Priority__c</field></layoutItems>
+        </layoutColumns>
+        <layoutColumns>
+            <layoutItems><behavior>Edit</behavior><field>Risk_Level__c</field></layoutItems>
+            <layoutItems><behavior>Edit</behavior><field>Sector__c</field></layoutItems>
+            <layoutItems><behavior>Edit</behavior><field>Site__c</field></layoutItems>
+            <layoutItems><behavior>Edit</behavior><field>Product__c</field></layoutItems>
+        </layoutColumns>
+        <style>TwoColumnsTopToBottom</style>
+    </layoutSections>
+    <layoutSections>
+        <customLabel>true</customLabel>
+        <detailHeading>true</detailHeading>
+        <editHeading>true</editHeading>
+        <label>Investigation Details</label>
+        <layoutColumns>
+            <layoutItems><behavior>Edit</behavior><field>Summary__c</field></layoutItems>
+        </layoutColumns>
+        <style>OneColumn</style>
+    </layoutSections>
+    <relatedLists>
+        <fields>NAME</fields>
+        <fields>QMS_CAPA_ID__c</fields>
+        <fields>Status__c</fields>
+        <fields>Risk_Rating__c</fields>
+        <fields>CAPA_Owner__c</fields>
+        <relatedList>QMS_CAPA__c.Source_Complaint__c</relatedList>
+    </relatedLists>
+    <showEmailCheckbox>false</showEmailCheckbox>
+    <showHighlightsPanel>false</showHighlightsPanel>
+    <showInteractionLogPanel>false</showInteractionLogPanel>
+    <showRunAssignmentRulesCheckbox>false</showRunAssignmentRulesCheckbox>
+    <showSubmitAndAttachButton>false</showSubmitAndAttachButton>
+</Layout>
